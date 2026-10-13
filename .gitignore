@@ -1,0 +1,19 @@
+# 依赖与构建产物
+node_modules/
+*.tgz
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+.npm/
+
+# 个人数据（这些默认在 <DSH_HOME>/persona-select/，万一被复制进仓库也别提交）
+personas.json
+personas.json.v2-backup
+history/
