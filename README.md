@@ -34,7 +34,7 @@
 **历史对话**在**新对话的第一步**作为 user 侧上下文注入一次，并按仿照 DSH 自身注入的格式包裹：
 
 - 整段包进一对 `<system-reminder>`，开口之后是 `CONTEXT_ROAD:`，结尾是 `CONTINUE_CONTEXT.`；正文里出现的收尾标签会被转义，保证壳子不会被提前闭合。
-- 往期对话的 user 侧内容包在 `<user_message>` 里；模型侧的思考包在 `<thinking>` 里、说的话包在 `<assistant_message>` 里；双方非对话内容（工具调用、多模态等）包在 `<file>` 之类的标记里；压缩摘要保持 `<compacted-summary>…</compacted-summary>` 原样。
+- 往期对话的 user 侧内容包在 `<user_message>` 里；模型侧的思考包在 `<thinking>` 里、说的话包在 `<assistant_message>` 里；双方非对话内容包在 `<file>` 之类的标记里；压缩摘要保持 `<compacted-summary>…</compacted-summary>` 原样。
 
 **已经注入过的对话不会重复注入**（那会把整段对话的缓存读取推倒重来）。所以历史对话只在每个新对话的第一步生效；如果想让一个已经聊起来的对话也带上历史，只能把历史写进人设正文——但效果不好，不推荐。
 
@@ -69,7 +69,7 @@
 **导出**（设置页编辑器里那条人设的正文 + 段序权重 + 历史对话一起走）：
 
 - **导出 JSON**：纯 JSON，不压缩、不丢信息。
-- **导出图片**：由**你自己挑一张 PNG 当封面**，同样的数据打进图片里一起下载。图片本身一个字节都不改，任何看图软件照常显示它。
+- **导出图片**：由**你自己挑一张 PNG 当封面**，同样的数据打进图片里一起作为一张角色卡下载。图片本身的数据一个字节都不改，包括AI生图或捏人游戏角色卡(导出为png格式的游戏，例如恋活)，任何看图软件照常显示它。
 - 单次导出上限 32 MB；选了非 PNG、或 PNG 结构不完整（读不出 IHDR）会被直接拒绝并说明原因。
 - 导出取的是编辑器里那条人设**已保存**的版本：有未保存改动会先询问，新建但还没保存的人设不能导出。
 
@@ -134,7 +134,7 @@ The two are stored together as one **persona**: write the text and the history i
 **Persona text** becomes the **persona section** of the system prompt, and **its position is yours to edit**: the "Section order weight" decides where that section sits.
 
 - **A number**: sections sort by weight, **lower comes first** (default `-1`, ahead of the preset line "You are a coding agent…").
-- **Follow**: click it and the persona section is appended **after every system-prompt section** (the same approach as prompt management).
+- **Follow**: click it and the persona section is appended **after every system-prompt section**.
 - The weight only affects ordering and **never enters the persona text**. Each persona keeps its own weight, and the field follows whichever persona you are editing.
 - It must be an integer (`-1000000000` to `1000000000`): decimals, exponents and units are refused on save.
 
