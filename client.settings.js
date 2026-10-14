@@ -16,30 +16,55 @@ window.__ModuleLoader__.load({
         useMainSessionRow, usePersonaState, useSettledTick,
       } = deps;
     function confirmWithFocusRestore(ask, lastField, message) {
-      const active = typeof document === 'undefined' ? null : document.activeElement;
-      const restore = active !== null && active !== undefined
-        && typeof active.focus === 'function'
-        && typeof active.matches === 'function'
-        && active.matches('input, textarea, [contenteditable="true"]')
-        ? active
-        : null;
-      const remembered = lastField !== null && lastField !== undefined
-        && lastField.isConnected !== false
-        && typeof lastField.focus === 'function'
-        ? lastField
-        : null;
+      const usable = (node) => node !== null && node !== undefined
+        && node.isConnected !== false
+        && typeof node.focus === 'function';
+      const focusedNow = () => {
+        if (typeof document === 'undefined') return false;
+        const current = document.activeElement;
+        return usable(current) && typeof current.matches === 'function'
+          && current.matches('input, textarea, [contenteditable="true"]')
+          ? current
+          : null;
+      };
+      const target = usable(lastField) ? lastField : focusedNow();
       const verdict = typeof ask !== 'function' ? true : ask(message);
-      const target = remembered !== null ? remembered : restore;
-      if (target !== null) {
-        const refocus = () => {
-          try {
-            if (target.isConnected !== false && typeof target.focus === 'function') target.focus({ preventScroll: true });
-          } catch {
-          }
-        };
-        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(refocus);
-        else setTimeout(refocus, 0);
+      if (target === null) return verdict;
+      const refocus = () => {
+        try {
+          if (target.isConnected !== false && typeof target.focus === 'function') target.focus({ preventScroll: true });
+        } catch {
+        }
+      };
+      const soon = (fn) => {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fn);
+        else setTimeout(fn, 0);
+      };
+      let listener = null;
+      const detach = () => {
+        if (listener === null) return;
+        const node = listener;
+        listener = null;
+        try {
+          node.removeEventListener('focus', onWindowFocus);
+        } catch {
+        }
+      };
+      const onWindowFocus = () => {
+        detach();
+        soon(refocus);
+      };
+      const docUnfocused = typeof document !== 'undefined' && typeof document.hasFocus === 'function' && document.hasFocus() === false;
+      if (docUnfocused && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        try {
+          listener = window;
+          window.addEventListener('focus', onWindowFocus);
+          setTimeout(detach, 30000);
+        } catch {
+          listener = null;
+        }
       }
+      soon(refocus);
       return verdict;
     }
     function PersonaManagerImpl(props) {
