@@ -104,6 +104,10 @@
 
 设置页与对话界面均跟随宿主语言，内置中文 / English 两套文案。
 
+### 内置人设声明
+
+插件中“鲸鱼娘”的形象描述来自[@ZipZipPipe](https://space.bilibili.com/4168597)的，遵守CC BY-NC-SA 4.0协议再创作并开源，请尊重相关形象创造者。
+
 ---
 
 ## English
@@ -203,6 +207,10 @@ The "Persona" dropdown under the mode selector:
 ### Interface
 
 Settings page and conversation picker follow the host language, with Simplified Chinese and English built in.
+
+### Built-in persona notice
+
+The “whale girl” likeness used by the built-in persona comes from [@ZipZipPipe](https://space.bilibili.com/4168597); it is re-created and open-sourced under the CC BY-NC-SA 4.0 licence. Please respect the creator of the likeness.
 
 ---
 
