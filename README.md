@@ -64,7 +64,6 @@
 <sub>以下为关闭所有系统测注入后，你能够真实达到的token消耗</sub>
 <img width="312" height="251" alt="中文tok" src="https://github.com/user-attachments/assets/36a428e5-1171-471b-8e7c-aefcc072053e" />
 
-
 ### 导入与导出
 
 **导出**（设置页编辑器里那条人设的正文 + 段序权重 + 历史对话一起走）：
@@ -171,7 +170,6 @@ All four on with no persona selected is **pure chat**: zero system-side injectio
 
 <sub>This is what token consumption really looks like after every system-side injection is disabled!</sub>
 <img width="324" height="252" alt="英文tok" src="https://github.com/user-attachments/assets/21ddc29c-a9a9-40da-a38c-c16fd73cef0b" />
-
 
 ### Import and export
 
