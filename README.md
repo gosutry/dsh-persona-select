@@ -210,7 +210,7 @@ Settings page and conversation picker follow the host language, with Simplified 
 
 ### Built-in persona notice
 
-The “whale girl” likeness used by the built-in persona comes from [@ZipZipPipe](https://space.bilibili.com/4168597); it is re-created and open-sourced under the CC BY-NC-SA 4.0 licence. Please respect the creator of the likeness.
+The “DeepSeek chan” likeness used by the built-in persona comes from [@ZipZipPipe](https://space.bilibili.com/4168597); it is re-created and open-sourced under the CC BY-NC-SA 4.0 licence. Please respect the creator of the likeness.
 
 ---
 
