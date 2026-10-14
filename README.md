@@ -5,6 +5,9 @@
 > Bilingual README. [中文](#中文) · [English](#english)
 
 ---
+<img width="672" height="212" alt="啥子鱼思考" src="https://github.com/user-attachments/assets/0f414cd7-0a1a-4675-8f3e-445488808916" />
+
+---
 
 ## 中文
 
