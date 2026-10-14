@@ -15,8 +15,41 @@ window.__ModuleLoader__.load({
         notifyPersonaChanged, summarizeIndicators,
         useMainSessionRow, usePersonaState, useSettledTick,
       } = deps;
+    function confirmWithFocusRestore(ask, lastField, message) {
+      const active = typeof document === 'undefined' ? null : document.activeElement;
+      const restore = active !== null && active !== undefined
+        && typeof active.focus === 'function'
+        && typeof active.matches === 'function'
+        && active.matches('input, textarea, [contenteditable="true"]')
+        ? active
+        : null;
+      const remembered = lastField !== null && lastField !== undefined
+        && lastField.isConnected !== false
+        && typeof lastField.focus === 'function'
+        ? lastField
+        : null;
+      const verdict = typeof ask !== 'function' ? true : ask(message);
+      const target = remembered !== null ? remembered : restore;
+      if (target !== null) {
+        const refocus = () => {
+          try {
+            if (target.isConnected !== false && typeof target.focus === 'function') target.focus({ preventScroll: true });
+          } catch {
+          }
+        };
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(refocus);
+        else setTimeout(refocus, 0);
+      }
+      return verdict;
+    }
     function PersonaManagerImpl(props) {
       const t = props !== null && props !== undefined && typeof props.t === 'function' ? props.t : fallbackT;
+      const focusedRef = React.useRef(null);
+      const rememberFocused = (event) => {
+        const target = event?.target ?? null;
+        if (target === null || typeof target.matches !== 'function') return;
+        if (target.matches('input, textarea, [contenteditable="true"]')) focusedRef.current = target;
+      };
       const mainSession = useMainSessionRow(props?.useSessions);
       const currentSessionId = mainSession.sessionId;
       const currentSessionTitle = mainSession.title;
@@ -261,7 +294,7 @@ window.__ModuleLoader__.load({
           if (
             typeof window === 'undefined' ||
             typeof window.confirm !== 'function' ||
-            !window.confirm(message)
+            !confirmWithFocusRestore(window.confirm, focusedRef.current, message)
           ) {
             return;
           }
@@ -324,7 +357,7 @@ window.__ModuleLoader__.load({
           historyText.trim() !== '' &&
           typeof window !== 'undefined' &&
           typeof window.confirm === 'function' &&
-          !window.confirm(t('historyImportConfirm'))
+          !confirmWithFocusRestore(window.confirm, focusedRef.current, t('historyImportConfirm'))
         ) {
           return;
         }
@@ -494,7 +527,7 @@ window.__ModuleLoader__.load({
       };
       const onDelete = () =>
         run(async () => {
-          if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm(t('confirmDelete'))) {
+          if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !confirmWithFocusRestore(window.confirm, focusedRef.current, t('confirmDelete'))) {
             return;
           }
           await call(`/delete?id=${encodeURIComponent(draft.id)}`, { method: 'DELETE' });
@@ -675,7 +708,7 @@ window.__ModuleLoader__.load({
           if (
             typeof window === 'undefined' ||
             typeof window.confirm !== 'function' ||
-            !window.confirm(message)
+            !confirmWithFocusRestore(window.confirm, focusedRef.current, message)
           ) {
             return;
           }
@@ -775,6 +808,7 @@ window.__ModuleLoader__.load({
           style: S.root,
           'data-plugin': 'dsh-persona-select',
           'data-render-state': 'ready',
+          onFocusCapture: rememberFocused,
           'data-active-id': activeId ?? '',
           'data-creating': creating ? '1' : '0',
           'data-scope': activeTab,
