@@ -15,66 +15,69 @@ window.__ModuleLoader__.load({
         notifyPersonaChanged, summarizeIndicators,
         useMainSessionRow, usePersonaState, useSettledTick,
       } = deps;
-    function confirmWithFocusRestore(ask, lastField, message) {
-      const usable = (node) => node !== null && node !== undefined
-        && node.isConnected !== false
-        && typeof node.focus === 'function';
-      const focusedNow = () => {
-        if (typeof document === 'undefined') return false;
-        const current = document.activeElement;
-        return usable(current) && typeof current.matches === 'function'
-          && current.matches('input, textarea, [contenteditable="true"]')
-          ? current
-          : null;
-      };
-      const target = usable(lastField) ? lastField : focusedNow();
-      const verdict = typeof ask !== 'function' ? true : ask(message);
-      if (target === null) return verdict;
-      const refocus = () => {
-        try {
-          if (target.isConnected !== false && typeof target.focus === 'function') target.focus({ preventScroll: true });
-        } catch {
-        }
-      };
-      const soon = (fn) => {
-        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fn);
-        else setTimeout(fn, 0);
-      };
-      let listener = null;
-      const detach = () => {
-        if (listener === null) return;
-        const node = listener;
-        listener = null;
-        try {
-          node.removeEventListener('focus', onWindowFocus);
-        } catch {
-        }
-      };
-      const onWindowFocus = () => {
-        detach();
-        soon(refocus);
-      };
-      const docUnfocused = typeof document !== 'undefined' && typeof document.hasFocus === 'function' && document.hasFocus() === false;
-      if (docUnfocused && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-        try {
-          listener = window;
-          window.addEventListener('focus', onWindowFocus);
-          setTimeout(detach, 30000);
-        } catch {
-          listener = null;
-        }
-      }
-      soon(refocus);
-      return verdict;
+    function ConfirmDialog(props) {
+      const t = props !== null && props !== undefined && typeof props.t === 'function' ? props.t : fallbackT;
+      const request = props !== null && props !== undefined ? props.request : null;
+      const accept = props !== null && props !== undefined && typeof props.onAccept === 'function' ? props.onAccept : () => {};
+      const cancel = props !== null && props !== undefined && typeof props.onCancel === 'function' ? props.onCancel : () => {};
+      React.useEffect(() => {
+        if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return undefined;
+        const onKey = (event) => {
+          if (event.key === 'Escape') cancel();
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+      }, [cancel]);
+      if (request === null) return null;
+      const actions = [
+        { label: t('confirmOk'), kind: 'primary', run: accept },
+        { label: t('confirmCancel'), kind: 'ghost', run: cancel },
+      ];
+      return h(
+        'div',
+        { style: S.confirmOverlay, 'data-confirm-dialog': '1' },
+        h(
+          'div',
+          { style: S.confirmBox, role: 'dialog', 'aria-modal': 'true' },
+          h('p', { style: S.confirmBody }, request.message),
+          h(
+            'div',
+            { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' } },
+            actions.map((action) =>
+              h(
+                'button',
+                {
+                  key: action.kind,
+                  type: 'button',
+                  style: action.kind === 'primary' ? S.button : S.ghostButton,
+                  'data-confirm-action': action.kind,
+                  onClick: action.run,
+                },
+                action.label,
+              ),
+            ),
+          ),
+        ),
+      );
     }
     function PersonaManagerImpl(props) {
       const t = props !== null && props !== undefined && typeof props.t === 'function' ? props.t : fallbackT;
-      const focusedRef = React.useRef(null);
-      const rememberFocused = (event) => {
-        const target = event?.target ?? null;
-        if (target === null || typeof target.matches !== 'function') return;
-        if (target.matches('input, textarea, [contenteditable="true"]')) focusedRef.current = target;
-      };
+      const [confirmRequest, setConfirmRequest] = React.useState(null);
+      const confirmResolveRef = React.useRef(null);
+
+      const confirmDialog = React.useCallback((message) => new Promise((resolve) => {
+        if (typeof message !== 'string' || message.trim() === '') { resolve(true); return; }
+        confirmResolveRef.current = resolve;
+        setConfirmRequest({ message });
+      }), []);
+      const settleConfirm = React.useCallback((answer) => {
+        const resolve = confirmResolveRef.current;
+        confirmResolveRef.current = null;
+        setConfirmRequest(null);
+        if (resolve !== null) resolve(answer);
+      }, []);
+      const acceptConfirm = React.useCallback(() => settleConfirm(true), [settleConfirm]);
+      const cancelConfirm = React.useCallback(() => settleConfirm(false), [settleConfirm]);
       const mainSession = useMainSessionRow(props?.useSessions);
       const currentSessionId = mainSession.sessionId;
       const currentSessionTitle = mainSession.title;
@@ -311,18 +314,13 @@ window.__ModuleLoader__.load({
         setSaveFeedback(null);
         setOrderDraft({ mode: 'number', value: orderBaseline.value });
       };
-      const onPreview = (id) => {
+      const onPreview = async (id) => {
         if (id === selectedId && !creating) return;
         if (dirtyParts.length > 0) {
           const message =
             `${t('switchConfirm')}\n${dirtyParts.map((part) => `· ${part}`).join('\n')}\n\n${t('switchConfirmTail')}`;
-          if (
-            typeof window === 'undefined' ||
-            typeof window.confirm !== 'function' ||
-            !confirmWithFocusRestore(window.confirm, focusedRef.current, message)
-          ) {
-            return;
-          }
+          const proceed = await confirmDialog(message);
+          if (!proceed) return;
         }
         setEditorNotice(null);
         loadPersona(id);
@@ -376,15 +374,11 @@ window.__ModuleLoader__.load({
         }
         loadPersona(layer.activeId);
       }, [data, activeTab, layer.activeId, creating, dirtyParts.length, loadPersona, onDiscardNew]);
-      const onImportClick = () => {
+      const onImportClick = async () => {
         if (writeBusyRef.current) return;
-        if (
-          historyText.trim() !== '' &&
-          typeof window !== 'undefined' &&
-          typeof window.confirm === 'function' &&
-          !confirmWithFocusRestore(window.confirm, focusedRef.current, t('historyImportConfirm'))
-        ) {
-          return;
+        if (historyText.trim() !== '') {
+          const proceed = await confirmDialog(t('historyImportConfirm'));
+          if (!proceed) return;
         }
         const node = historyFileRef.current;
         if (node === null || node === undefined) return;
@@ -552,9 +546,8 @@ window.__ModuleLoader__.load({
       };
       const onDelete = () =>
         run(async () => {
-          if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !confirmWithFocusRestore(window.confirm, focusedRef.current, t('confirmDelete'))) {
-            return;
-          }
+          const proceed = await confirmDialog(t('confirmDelete'));
+          if (!proceed) return;
           await call(`/delete?id=${encodeURIComponent(draft.id)}`, { method: 'DELETE' });
           setSelectedId(null);
           setNoPreview(true);
@@ -717,7 +710,7 @@ window.__ModuleLoader__.load({
           text: `${t('exportDone')} · ${filename}${outcome.exact ? '' : ` ${t('exportNameMayDiffer')}`}`,
         });
       };
-      const onExportClick = () => {
+      const onExportClick = async () => {
         if (busy) return;
         if (exportMenu) {
           setExportMenu(false);
@@ -729,14 +722,8 @@ window.__ModuleLoader__.load({
         }
         if (!canExport) return;
         if (dirtyParts.length > 0) {
-          const message = t('exportConfirmDirty');
-          if (
-            typeof window === 'undefined' ||
-            typeof window.confirm !== 'function' ||
-            !confirmWithFocusRestore(window.confirm, focusedRef.current, message)
-          ) {
-            return;
-          }
+          const proceed = await confirmDialog(t('exportConfirmDirty'));
+          if (!proceed) return;
         }
         setExportNotice(null);
         setExportMenu(true);
@@ -833,7 +820,6 @@ window.__ModuleLoader__.load({
           style: S.root,
           'data-plugin': 'dsh-persona-select',
           'data-render-state': 'ready',
-          onFocusCapture: rememberFocused,
           'data-active-id': activeId ?? '',
           'data-creating': creating ? '1' : '0',
           'data-scope': activeTab,
@@ -1606,6 +1592,7 @@ window.__ModuleLoader__.load({
           notice !== null ? h('p', { style: S.notice, 'data-notice': '1' }, notice) : null,
           failure !== null ? h('p', { style: S.warn }, failure) : null,
           error !== null && error !== undefined ? h('p', { style: S.warn }, error) : null,
+          h(ConfirmDialog, { t, request: confirmRequest, onAccept: acceptConfirm, onCancel: cancelConfirm }),
         ),
       );
     }

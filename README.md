@@ -100,13 +100,6 @@
 - 名称最长 40 字；人设正文建议不超过 20000 字（超过会提示，但完整保留、不截断）；最多 200 条人设；最多保留 500 条对话记录。
 - 会话记录会被自动清理：已经不存在、也不在活动列表里的对话记录会被回收（设置页也可主动触发），避免文件无限膨胀。
 
-### 已知限制
-
-- **同一份数据只支持单实例在写**：整份写回，两个实例同时保存时后写的会盖掉先写的，且都不报错。**读**是安全的。规避办法是只开一个实例；手改 `personas.json` 后先在界面上确认数字。
-- **导入 Session 日志时，不勾「导入思考过程」会让正文里手写的 `<thinking>` 字面量连它到区段末尾的内容一起被删掉**。判据是"宁可多删，不留半截思考"；`<compacted-summary>` 包住的那一段不受影响。要原样保留就写成 `&lt;thinking&gt;` 这样的转义写法。
-- **分叉与委派**：分叉出来的子对话会继承父对话的设置与人设（在第一次装配之前完成）；委派的子 agent 继承设置与人设词，但不再注入历史对话（`subagent_fork` 从父对话日志前缀里继承进来的那一条除外）。
-- **桌面端原生确认框会吞掉输入框焦点（DSH 桌面外壳的行为）**：弹窗关闭后窗口被重新激活，但**没有把焦点还给刚才那个输入框**，于是光标不显示、要点一下才回来。这是 Electron 原生对话框的通病，跟本插件无关（DSH 桌面端自己的 preload 里也留了一套 `rememberEditor` 来处理同类问题，只是没用在原生确认框上）。**本插件已经自保**：它自己弹的确认框（切换人设 / 删除人设 / 导入历史 / 导出未保存）关闭后，会把焦点还给上一次编辑的输入框；其它地方（DSH 自己弹的框）仍需点一下。
-
 ### 界面
 
 设置页与对话界面均跟随宿主语言，内置中文 / English 两套文案。
@@ -206,13 +199,6 @@ The "Persona" dropdown under the mode selector:
 
 - Names up to 40 characters; persona text recommended under 20000 characters (over that it is reported but kept in full, never truncated); at most 200 personas; at most 500 session records.
 - Session records are garbage-collected: records for conversations that no longer exist and are not in the active list are reclaimed (also triggerable from the settings page), so the file cannot grow without bound.
-
-### Known limitations
-
-- **One writer per data file.** The whole file is written back, so two instances saving at once will silently overwrite each other — no error is reported. **Reads** are safe. Keep to a single instance, and after hand-editing `personas.json`, confirm the numbers in the UI.
-- **Importing a session log with "Include thinking" off will also delete a literal `<thinking>` you typed in the body, together with everything up to the end of its section.** The rule is "rather delete too much than keep half a thought"; content inside `<compacted-summary>` is unaffected. To keep it literally, write it escaped, e.g. `&lt;thinking&gt;`.
-- **Forks and delegations**: a forked child conversation inherits its parent's settings and persona (before first assembly); a delegated subagent inherits settings and persona text but does not get the conversation history injected (except the entry `subagent_fork` inherits from the parent log prefix).
-- **Native confirmation dialogs on Desktop steal input focus (a DSH desktop-shell behaviour)**: after the dialog closes the window is re-activated, but focus is **not returned to the field you were editing**, so the caret disappears until you click again. This is the usual Electron native-dialog pitfall and is unrelated to this plugin (the DSH desktop preload even ships its own `rememberEditor` handling for the same problem, just not for native confirms). **This plugin now defends itself**: after each of its own confirmation dialogs (switch persona / delete persona / import history / export with unsaved edits) it returns focus to the field you last edited. Dialogs opened elsewhere in DSH still need one extra click.
 
 ### Interface
 
