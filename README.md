@@ -106,7 +106,7 @@
 
 ### 内置人设声明
 
-插件中“鲸鱼娘”的形象描述来自[@ZipZipPipe](https://space.bilibili.com/4168597)的，遵守CC BY-NC-SA 4.0协议再创作并开源，请尊重相关形象创造者。
+插件中“鲸鱼娘”的形象描述来自[@ZipZipPipe](https://space.bilibili.com/4168597)，遵守CC BY-NC-SA 4.0协议再创作并开源，请尊重相关形象创造者。
 
 ---
 
