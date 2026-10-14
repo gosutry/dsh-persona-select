@@ -1444,7 +1444,7 @@ window.__ModuleLoader__.load({
         const standIn = unmeasuredPanelAnchor(viewport.height);
         const budget = Math.max(viewport.height - standIn.top - POPUP_EDGE_INSET, POPUP_MIN_HEIGHT);
         return {
-          place: POPUP_PLACE.above,
+          place: POPUP_PLACE.below,
           maxHeight: Math.max(Math.min(measured > 0 ? measured : 320, 320, budget), POPUP_MIN_HEIGHT),
           available: budget,
           positioned: false,
@@ -1454,7 +1454,7 @@ window.__ModuleLoader__.load({
       }
       const above = Math.max(rect.top - POPUP_EDGE_INSET, 0);
       const below = Math.max(viewport.height - rect.bottom - POPUP_EDGE_INSET, 0);
-      const place = above >= below ? POPUP_PLACE.above : POPUP_PLACE.below;
+      const place = POPUP_PLACE.above;
       const available = Math.max(place === POPUP_PLACE.above ? above : below, POPUP_MIN_HEIGHT);
       const maxHeight = Math.max(Math.min(measured > 0 ? measured : 320, 320, available), POPUP_MIN_HEIGHT);
       const width = Number.isFinite(input?.width) && input.width > 0 ? input.width : 0;

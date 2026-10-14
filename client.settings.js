@@ -120,7 +120,7 @@ window.__ModuleLoader__.load({
       const orderDefaultValue = String(Number.isFinite(configuredOrder) ? configuredOrder : (data?.section?.orderDefault ?? -1));
       const orderFollowValue = String(data?.section?.orderFollow ?? 1000000);
       const orderDraftOf = (stored) =>
-        stored === 'follow'
+        stored === 'follow' || stored === '1000000'
           ? { mode: 'follow', value: orderFollowValue }
           : { mode: 'number', value: String(stored ?? orderDefaultValue) };
       const normalizeNameLocal = (value) =>

@@ -16,6 +16,21 @@ window.__ModuleLoader__.load({
         useMainSessionRow, usePersonaState, useSettledTick,
         popupPanelLayout, popupPanelLayoutStyle, supportsPopover,
       } = deps;
+    function panelNodeIntrinsicHeight(node) {
+      if (node === null || node === undefined) return 0;
+      let height = 0;
+      if (typeof node.scrollHeight === 'number' && Number.isFinite(node.scrollHeight) && node.scrollHeight > 0) {
+        height = node.scrollHeight;
+      } else if (typeof node.getBoundingClientRect === 'function') {
+        try {
+          const rect = node.getBoundingClientRect();
+          if (rect !== null && rect !== undefined && Number.isFinite(rect.height) && rect.height > 0) height = rect.height;
+        } catch {
+          height = 0;
+        }
+      }
+      return height > 0 ? Math.ceil(height) : 0;
+    }
     function usePopupGeometry(triggerRef, open) {
       const [layout, setLayout] = React.useState({ place: 'above', maxHeight: 320, positioned: false, left: 0, top: 0 });
       const panelElRef = React.useRef(null);
@@ -47,7 +62,9 @@ window.__ModuleLoader__.load({
         } else {
           width = Math.max(rect.width, 220);
         }
-        const next = popupPanelLayout({ rect, width, measured: measuredRef.current });
+        const height = panelNodeIntrinsicHeight(panel);
+        if (height > 0) measuredRef.current = height;
+        const next = popupPanelLayout({ rect, width, measured: height > 0 ? height : measuredRef.current });
         setLayout((previous) => (
           previous.place === next.place
           && previous.maxHeight === next.maxHeight
@@ -65,16 +82,8 @@ window.__ModuleLoader__.load({
           measuredRef.current = 0;
           return;
         }
-        let rect = null;
-        try {
-          rect = node.getBoundingClientRect();
-        } catch {
-          rect = null;
-        }
-        if (rect !== null && rect !== undefined && rect.height > 0) {
-          const overset = typeof node.scrollHeight === 'number' && node.scrollHeight > rect.height + 1;
-          if (!overset) measuredRef.current = rect.height;
-        }
+        const height = panelNodeIntrinsicHeight(node);
+        if (height > 0) measuredRef.current = height;
         measure();
       }, [measure]);
       const useIsomorphicLayoutEffect = typeof React.useLayoutEffect === 'function'
@@ -319,9 +328,9 @@ window.__ModuleLoader__.load({
             'span',
             {
               style: S.pickerArrow,
-              'data-picker-arrow': open ? (panelLayout.place === 'above' ? 'up' : 'down') : 'up',
+              'data-picker-arrow': open ? 'down' : 'up',
             },
-            open ? (panelLayout.place === 'above' ? '▲' : '▼') : '▲',
+            open ? '▼' : '▲',
           ),
         ),
         dotNode,
