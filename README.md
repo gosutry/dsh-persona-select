@@ -33,7 +33,7 @@
 - 整段包进一对 `<system-reminder>`，开口之后是 `CONTEXT_ROAD:`，结尾是 `CONTINUE_CONTEXT.`；正文里出现的收尾标签会被转义，保证壳子不会被提前闭合。
 - 往期对话的 user 侧内容包在 `<user_message>` 里；模型侧的思考包在 `<thinking>` 里、说的话包在 `<assistant_message>` 里；双方非对话内容（工具调用、多模态等）包在 `<file>` 之类的标记里；压缩摘要保持 `<compacted-summary>…</compacted-summary>` 原样。
 
-**已经注入过的对话不会重复注入**（那会把整段对话的 KV 缓存推倒重来）。所以历史对话只在每个新对话的第一步生效；如果想让一个已经聊起来的对话也带上历史，只能把历史写进人设正文——但效果不好，不推荐。
+**已经注入过的对话不会重复注入**（那会把整段对话的缓存读取推倒重来）。所以历史对话只在每个新对话的第一步生效；如果想让一个已经聊起来的对话也带上历史，只能把历史写进人设正文——但效果不好，不推荐。
 
 ### 人设管理
 
@@ -137,7 +137,7 @@ The two are stored together as one **persona**: write the text and the history i
 - the whole block sits inside one `<system-reminder>` pair, opened by `CONTEXT_ROAD:` and closed by `CONTINUE_CONTEXT.`; any closing tag occurring in the body is escaped so the shell can never be closed early.
 - inside it, past user-side content goes inside `<user_message>`; the model side's thinking goes inside `<thinking>`, its spoken content inside `<assistant_message>`; non-conversational content from either side (tool calls, multimodal parts) goes inside markers such as `<file>`; compaction summaries stay wrapped in `<compacted-summary>…</compacted-summary>`, verbatim.
 
-**A conversation that has already been injected is never injected again** — doing so would tear down the whole conversation's KV cache. History therefore only takes effect on the first step of each new conversation. If an already-running conversation must carry history across a persona switch, you can write that history into the persona text itself — the result is poor, so it is not recommended.
+**A conversation that has already been injected is never injected again** — doing so would tear down the whole conversation's cached input. History therefore only takes effect on the first step of each new conversation. If an already-running conversation must carry history across a persona switch, you can write that history into the persona text itself — the result is poor, so it is not recommended.
 
 ### Managing personas
 
