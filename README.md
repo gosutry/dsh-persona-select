@@ -61,6 +61,10 @@
 
 **工具保活通道**（「可复用工具」）：屏蔽 schema 工具的保险丝。DSH 的工具账本要求每个对话有一份非空的工具声明基线，基线一旦被清空，回来的工具都会被打上 deferred 标记并被服务方以 `INVALID_REQUEST` 拒绝。勾上它，插件只在**两个时刻**保留完整工具列表各一轮——这个对话的**第一次请求**，以及**疑似声明序列重启**（例如压缩）时——先让基线建立起来，之后无论怎么开关屏蔽，工具都还能回来。
 
+<sub>以下为关闭所有系统测注入后，你能够真实达到的token消耗</sub>
+<img width="312" height="251" alt="中文tok" src="https://github.com/user-attachments/assets/36a428e5-1171-471b-8e7c-aefcc072053e" />
+
+
 ### 导入与导出
 
 **导出**（设置页编辑器里那条人设的正文 + 段序权重 + 历史对话一起走）：
@@ -164,6 +168,10 @@ Four switches, each removing one class of system-side input the model would othe
 All four on with no persona selected is **pure chat**: zero system-side injection, the model sees only what you send. The picker in the conversation view has one-click **Make it pure chat / Restore system input** buttons.
 
 **Tool-keeping channel** ("Reusable tools"): the safety valve for "Suppress tool schemas". DSH's tool ledger requires a non-empty tool-declaration baseline for the session; once that baseline is emptied, tools that come back are all marked deferred and the provider rejects the request with `INVALID_REQUEST`. When checked, the plugin keeps the full tool list for exactly one turn at two moments — the session's **first request**, and a suspected **declaration-series restart** (a compaction, for example) — so a non-empty baseline gets written. Afterwards tools can always come back no matter how you toggle suppression.
+
+<sub>This is what token consumption really looks like after every system-side injection is disabled!</sub>
+<img width="324" height="252" alt="英文tok" src="https://github.com/user-attachments/assets/21ddc29c-a9a9-40da-a38c-c16fd73cef0b" />
+
 
 ### Import and export
 
