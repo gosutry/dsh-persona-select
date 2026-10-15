@@ -143,7 +143,7 @@ The two are stored together as one **persona**: write the text and the history i
 - the whole block sits inside one `<system-reminder>` pair, opened by `CONTEXT_ROAD:` and closed by `CONTINUE_CONTEXT.`; any closing tag occurring in the body is escaped so the shell can never be closed early.
 - inside it, past user-side content goes inside `<user_message>`; the model side's thinking goes inside `<thinking>`, its spoken content inside `<assistant_message>`; non-conversational content from either side (tool calls, multimodal parts) goes inside markers such as `<file>`; compaction summaries stay wrapped in `<compacted-summary>…</compacted-summary>`, verbatim.
 
-**A conversation that has already been injected is never injected again** — doing so would tear down the whole conversation's cached input. History therefore only takes effect on the first step of each new conversation. If an already-running conversation must carry history across a persona switch, you can write that history into the persona text itself — the result is poor, so it is not recommended.
+**A conversation that has already been injected is never injected again** — doing so would tear down the whole conversation's cached input(KV cache). History therefore only takes effect on the first step of each new conversation. If an already-running conversation must carry history across a persona switch, you can write that history into the persona text itself — the result is poor, so it is not recommended.
 
 ### Managing personas
 
