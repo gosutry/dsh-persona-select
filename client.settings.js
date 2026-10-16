@@ -166,6 +166,7 @@ window.__ModuleLoader__.load({
       const [expandOriginal, setExpandOriginal] = React.useState(false);
       const [historyVariants, setHistoryVariants] = React.useState(null);
       const [historyCleared, setHistoryCleared] = React.useState(false);
+      const [historyClearedSnapshot, setHistoryClearedSnapshot] = React.useState('');
       const [showWarnings, setShowWarnings] = React.useState(false);
       const personaBoxRef = React.useRef(null);
       const historyBoxRef = React.useRef(null);
@@ -201,6 +202,7 @@ window.__ModuleLoader__.load({
         setHistoryNotice(null);
         setHistoryVariants(null);
         setHistoryCleared(false);
+        setHistoryClearedSnapshot('');
         clearExportUi();
       }, []);
       React.useEffect(() => {
@@ -233,6 +235,7 @@ window.__ModuleLoader__.load({
             setHistoryNotice(null);
             setHistoryVariants(null);
             setHistoryCleared(false);
+            setHistoryClearedSnapshot('');
           } catch (problem) {
             if (!cancelled) setFailure(problem?.message ?? String(problem));
           }
@@ -334,6 +337,7 @@ window.__ModuleLoader__.load({
         setHistoryNotice(null);
         setHistoryVariants(null);
         setHistoryCleared(false);
+        setHistoryClearedSnapshot('');
         clearExportUi();
         setDraft({ id: '', name: t('unnamed'), text: '' });
         setDraftBaseline({ id: '', name: t('unnamed'), text: '' });
@@ -352,6 +356,7 @@ window.__ModuleLoader__.load({
         setHistoryNotice(null);
         setHistoryVariants(null);
         setHistoryCleared(false);
+        setHistoryClearedSnapshot('');
         clearExportUi();
         setSelectedId(null);
         setDraft({ id: '', name: '', text: '' });
@@ -408,6 +413,7 @@ window.__ModuleLoader__.load({
           setHistoryEpoch((n) => n + 1);
           setHistoryTab('import');
           setHistoryCleared(false);
+          setHistoryClearedSnapshot('');
           setHistoryNotice(importViewNotice(chosen));
         } catch (problem) {
           setHistoryNotice({
@@ -449,6 +455,8 @@ window.__ModuleLoader__.load({
       };
       const onClearHistory = () => {
         if (historyBusy) return;
+        // Remember the exact box content (saved or not) so undo restores what was cleared.
+        setHistoryClearedSnapshot(historyText);
         setHistoryText('');
         setHistoryEpoch((n) => n + 1);
         setHistoryCleared(true);
@@ -456,9 +464,10 @@ window.__ModuleLoader__.load({
       };
       const onUndoClearHistory = () => {
         if (historyBusy) return;
-        setHistoryText(historyBaseline);
+        setHistoryText(historyClearedSnapshot);
         setHistoryEpoch((n) => n + 1);
         setHistoryCleared(false);
+        setHistoryClearedSnapshot('');
         setHistoryNotice(null);
       };
       const onSave = async () => {
@@ -523,6 +532,7 @@ window.__ModuleLoader__.load({
             setHistoryEpoch((n) => n + 1);
             setHistoryLocked({ id: nextId, at: settled === '' ? null : Date.now(), missing: false });
             setHistoryCleared(false);
+            setHistoryClearedSnapshot('');
           }
           setCreating(false);
           setSelectedId(nextId === '' ? null : nextId);
@@ -1293,6 +1303,7 @@ window.__ModuleLoader__.load({
               onChange: (event) => {
                 setHistoryNotice(null);
                 setHistoryCleared(false);
+                setHistoryClearedSnapshot('');
                 setHistoryText(event.target.value);
               },
               disabled: writeBusy,
