@@ -1029,7 +1029,7 @@ window.__ModuleLoader__.load({
         padding: 16,
         borderRadius: 10,
         border: '1px solid rgba(127,127,127,0.35)',
-        background: 'var(--dsw-alias-bg-elevated, #ffffff)',
+        background: 'var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base, Canvas))',
         boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
       },
       confirmBody: { margin: 0, fontSize: 13, lineHeight: '20px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
