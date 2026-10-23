@@ -23,12 +23,10 @@
     "README.md",
     "LICENSE"
   ],
-  "dependencies": {
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.7-rc.2 <1.0.0",
     "dsh-persona-select-picker": "0.4.0-rc4",
     "dsh-persona-select-settings": "0.4.0-rc4"
-  },
-  "peerDependencies": {
-    "@deepseek-ai/dsh": ">=0.1.7-rc.2 <1.0.0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh": {
