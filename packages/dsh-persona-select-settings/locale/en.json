@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Persona settings",
-    "description": "The Persona manager page in Settings."
+    "description": "The persona manager page in Settings: persona list, editor, import/export, and history conversations."
   }
 }

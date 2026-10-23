@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Persona",
-    "description": "Persona body injection and conversation-history context for DSH, split into two independently switchable components."
+    "description": "DSH plugin that injects persona text into the system prompt and conversation history into the context, bundled with the built-in whale-girl community persona. In this README and in the plugin settings, injecting into the system prompt is called the 'persona body', and injecting into the context is called the 'history conversation'. Personas can be saved as presets in the settings manager, and the persona body plus history can be exported as a JSON file or as a PNG image with the image itself used as the cover. The injection position is editable. It can suppress DSH's own system prompt segments, runtime context, schema tools, and other user-side content, so only the conversation is sent to the model; a tool keep-alive channel avoids text-only replies after tools are used. History can be imported directly from DSH's own /export session logs, wrapped in tags modeled on DSH's own. Settings and persona selection are stored per conversation; switching personas or toggling options does not affect new or in-progress conversations."
   }
 }

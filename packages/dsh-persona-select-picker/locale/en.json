@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Persona picker",
-    "description": "The persona list beside the composer."
+    "description": "The persona list beside the composer: pick or clear the persona for the current conversation."
   }
 }
