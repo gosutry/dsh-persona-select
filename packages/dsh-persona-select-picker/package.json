@@ -22,14 +22,6 @@
     "README.md",
     "LICENSE"
   ],
-  "peerDependencies": {
-    "dsh-persona-select": "0.4.0-rc4"
-  },
-  "peerDependenciesMeta": {
-    "dsh-persona-select": {
-      "optional": true
-    }
-  },
   "engines": {
     "node": ">=18"
   },
