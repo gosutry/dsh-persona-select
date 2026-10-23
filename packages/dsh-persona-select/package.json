@@ -31,6 +31,12 @@
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh": {
       "optional": true
+    },
+    "dsh-persona-select-picker": {
+      "optional": true
+    },
+    "dsh-persona-select-settings": {
+      "optional": true
     }
   },
   "engines": {
