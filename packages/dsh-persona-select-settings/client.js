@@ -1,6 +1,6 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-persona-select',
-  factory: function personaSelectFactory(require) {
+  id: 'dsh-persona-select-settings',
+  factory: function settingsBundleFactory(require) {
     'use strict';
     let React = null;
     try {
@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
     }
     const h = React !== null && typeof React.createElement === 'function' ? React.createElement : null;
     const ROUTE_PREFIX = '/persona-select';
-    const NS = 'persona-select';
+    const NS = 'dsh-persona-select-settings';
     const EXPORT_FORMAT = 'dsh-persona-select/personas';
     const EXPORT_VERSION = 1;
     const EXPORT_MAX_BYTES = 32 * 1024 * 1024;
@@ -58,117 +58,129 @@ window.__ModuleLoader__.load({
     });
     const ZSTD_MAGIC = [0x28, 0xb5, 0x2f, 0xfd];
     const CHUNK_NAME_RE = /^client\.[A-Za-z0-9][A-Za-z0-9._-]*\.js$/;
-    const chunkCache = new Map();
-    function loadChunk(fileName) {
-      if (typeof require.async !== 'function') throw new Error('no-require-async：这个宿主还不支持包内分块');
-      if (!CHUNK_NAME_RE.test(fileName)) throw new Error(`bad-chunk-name：${fileName}`);
-      const cached = chunkCache.get(fileName);
-      if (cached !== undefined) return cached;
-      const promise = Promise.resolve().then(() => require.async(`./${fileName}`));
-      chunkCache.set(fileName, promise);
-      promise.catch(() => {
-        if (chunkCache.get(fileName) === promise) chunkCache.delete(fileName);
-      });
-      return promise;
-    }
-    const chunks = { ioExport: null, logImport: null };
-    async function ioExport() {
-      if (chunks.ioExport === null) {
-        try {
-          chunks.ioExport = (await loadChunk('client.io-export.js')).create({ call, decodeUtf8, EXPORT_FORMAT, EXPORT_VERSION });
-        } catch (problem) {
-          chunks.ioExport = null;
-          throw problem;
-        }
+    /**
+     * 一个包自己的分块加载器（每个 bundle 各自一份 require，避免跨包加载分块）。
+     */
+    function createChunkHost(requireFn) {
+      const chunkCache = new Map();
+      function loadChunk(fileName) {
+        if (typeof requireFn.async !== 'function') throw new Error('no-require-async：这个宿主还不支持包内分块');
+        if (!CHUNK_NAME_RE.test(fileName)) throw new Error(`bad-chunk-name：${fileName}`);
+        const cached = chunkCache.get(fileName);
+        if (cached !== undefined) return cached;
+        const promise = Promise.resolve().then(() => requireFn.async(`./${fileName}`));
+        chunkCache.set(fileName, promise);
+        promise.catch(() => {
+          if (chunkCache.get(fileName) === promise) chunkCache.delete(fileName);
+        });
+        return promise;
       }
-      return chunks.ioExport;
-    }
-    async function logImport() {
-      if (chunks.logImport === null) {
-        try {
-          chunks.logImport = (await loadChunk('client.log-import.js')).create({ USER_OPEN, USER_CLOSE, ASSISTANT_OPEN, ASSISTANT_CLOSE, FILE_OPEN, FILE_CLOSE, HISTORY_WRAPPER_LINES, HISTORY_FRAME_LINES, HISTORY_FRAME_ESCAPE, HISTORY_LEGACY_TAGS, HISTORY_LEGACY_PREAMBLE, LEGACY_USER_MARKER, IMAGE_EXTENSIONS, ZSTD_MAGIC, decodeUtf8, historyBytesOf });
-        } catch (problem) {
-          chunks.logImport = null;
-          throw problem;
-        }
-      }
-      return chunks.logImport;
-    }
-    function logImportSync() {
-      if (chunks.logImport === null) throw new Error('log-import-chunk-not-loaded');
-      return chunks.logImport;
-    }
-    const componentChunks = new Map();
-    function loadComponentChunk(fileName, id, build) {
-      const existing = componentChunks.get(fileName);
-      const record = existing !== undefined
-        ? existing
-        : { fileName, id, build, status: 'loading', component: null, error: null, listeners: new Set() };
-      if (record.status === 'ready') return record;
-      record.build = build;
-      record.status = 'loading';
-      record.component = null;
-      record.error = null;
-      componentChunks.set(fileName, record);
-      const notify = () => {
-        for (const listener of [...record.listeners]) {
+      const chunks = { ioExport: null, logImport: null };
+      async function ioExport() {
+        if (chunks.ioExport === null) {
           try {
-            listener();
-          } catch {
+            chunks.ioExport = (await loadChunk('client.io-export.js')).create({ call, decodeUtf8, EXPORT_FORMAT, EXPORT_VERSION });
+          } catch (problem) {
+            chunks.ioExport = null;
+            throw problem;
           }
         }
-      };
-      Promise.resolve()
-        .then(() => loadChunk(fileName))
-        .then((module) => {
-          const component = build(module);
-          if (typeof component !== 'function') throw new Error(`${fileName} 没有交出组件`);
-          record.component = component;
-          record.status = 'ready';
-        })
-        .catch((problem) => {
-          record.error = problem?.message ?? String(problem);
-          record.status = 'error';
-        })
-        .then(notify);
-      return record;
-    }
-    function lazyChunkComponent(record) {
-      return function LazyChunkComponent(props) {
-        const [, force] = React.useState(0);
-        React.useEffect(() => {
-          if (record.status !== 'loading') return undefined;
-          const listener = () => force((n) => n + 1);
-          record.listeners.add(listener);
-          return () => {
-            record.listeners.delete(listener);
-          };
-        }, []);
-        if (record.status === 'ready') return h(record.component, props);
-        const t = props !== null && props !== undefined && typeof props.t === 'function' ? props.t : fallbackT;
-        if (record.status === 'error') {
-          return h(
-            'div',
-            { style: S.root, 'data-chunk-error': record.fileName },
-            h('p', { style: S.warn }, `${t('chunkFailed')}：${record.error}`),
-            h(
-              'button',
-              {
-                type: 'button',
-                style: S.button,
-                'data-chunk-retry': record.fileName,
-                onClick: () => {
-                  force((n) => n + 1);
-                  loadComponentChunk(record.fileName, record.id, record.build);
-                },
-              },
-              t('retry'),
-            ),
-          );
+        return chunks.ioExport;
+      }
+      async function logImport() {
+        if (chunks.logImport === null) {
+          try {
+            chunks.logImport = (await loadChunk('client.log-import.js')).create({ USER_OPEN, USER_CLOSE, ASSISTANT_OPEN, ASSISTANT_CLOSE, FILE_OPEN, FILE_CLOSE, HISTORY_WRAPPER_LINES, HISTORY_FRAME_LINES, HISTORY_FRAME_ESCAPE, HISTORY_LEGACY_TAGS, HISTORY_LEGACY_PREAMBLE, LEGACY_USER_MARKER, IMAGE_EXTENSIONS, ZSTD_MAGIC, decodeUtf8, historyBytesOf });
+          } catch (problem) {
+            chunks.logImport = null;
+            throw problem;
+          }
         }
-        return h('p', { style: S.sub, 'data-chunk-loading': record.fileName }, t('loading'));
-      };
+        return chunks.logImport;
+      }
+      function logImportSync() {
+        if (chunks.logImport === null) throw new Error('log-import-chunk-not-loaded');
+        return chunks.logImport;
+      }
+      const componentChunks = new Map();
+      function loadComponentChunk(fileName, id, build) {
+        const existing = componentChunks.get(fileName);
+        const record = existing !== undefined
+          ? existing
+          : { fileName, id, build, status: 'loading', component: null, error: null, listeners: new Set() };
+        if (record.status === 'ready') return record;
+        record.build = build;
+        record.status = 'loading';
+        record.component = null;
+        record.error = null;
+        componentChunks.set(fileName, record);
+        const notify = () => {
+          for (const listener of [...record.listeners]) {
+            try {
+              listener();
+            } catch {
+            }
+          }
+        };
+        Promise.resolve()
+          .then(() => loadChunk(fileName))
+          .then((module) => {
+            const component = build(module);
+            if (typeof component !== 'function') throw new Error(`${fileName} 没有交出组件`);
+            record.component = component;
+            record.status = 'ready';
+          })
+          .catch((problem) => {
+            record.error = problem?.message ?? String(problem);
+            record.status = 'error';
+          })
+          .then(notify);
+        return record;
+      }
+      function lazyChunkComponent(record) {
+        return function LazyChunkComponent(props) {
+          const [, force] = React.useState(0);
+          React.useEffect(() => {
+            if (record.status !== 'loading') return undefined;
+            const listener = () => force((n) => n + 1);
+            record.listeners.add(listener);
+            return () => {
+              record.listeners.delete(listener);
+            };
+          }, []);
+          if (record.status === 'ready') return h(record.component, props);
+          const t = props !== null && props !== undefined && typeof props.t === 'function' ? props.t : fallbackT;
+          if (record.status === 'error') {
+            return h(
+              'div',
+              { style: S.root, 'data-chunk-error': record.fileName },
+              h('p', { style: S.warn }, `${t('chunkFailed')}：${record.error}`),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  style: S.button,
+                  'data-chunk-retry': record.fileName,
+                  onClick: () => {
+                    force((n) => n + 1);
+                    loadComponentChunk(record.fileName, record.id, record.build);
+                  },
+                },
+                t('retry'),
+              ),
+            );
+          }
+          return h('p', { style: S.sub, 'data-chunk-loading': record.fileName }, t('loading'));
+        };
+      }
+      function registerComponentChunk(fileName, slotId, build) {
+        return lazyChunkComponent(loadComponentChunk(fileName, slotId, (module) => build(module)));
+      }
+      return { loadChunk, ioExport, logImport, logImportSync, loadComponentChunk, lazyChunkComponent, registerComponentChunk };
     }
+
+    const chunkHost = createChunkHost(require);
+
     function chunkDeps() {
       return {
         React, h, S, fallbackT,
@@ -177,14 +189,11 @@ window.__ModuleLoader__.load({
         STRIP_KIND_FIELDS, SWITCH_FIELDS, RESIDENT_RETRY_MS,
         allSwitchesOn, byColorRank, call, checkOrderInput, ensureScrollCss,
         historyBytesOf, indicatorFor, indicatorsOf,
-        ioExport, logImport, logImportSync,
+        ioExport: chunkHost.ioExport, logImport: chunkHost.logImport, logImportSync: chunkHost.logImportSync,
         notifyPersonaChanged, summarizeIndicators,
         useMainSessionRow, usePersonaState, useSettledTick,
         popupPanelLayout, popupPanelLayoutStyle, supportsPopover,
       };
-    }
-    function registerComponentChunk(fileName, slotId, build) {
-      return lazyChunkComponent(loadComponentChunk(fileName, slotId, (module) => build(module)));
     }
     const PERSONA_CHANGED_EVENT = 'dsh-persona-select:changed';
     const PERSONA_POLL_MS = 4000;
@@ -687,6 +696,24 @@ window.__ModuleLoader__.load({
       }
     }
     const sessionsHolder = { service: null };
+    /**
+     * 绑定 sessions 服务（幂等）：两个组件 bundle 各自 apply 时都会调一次。
+     */
+    function bindSessionsService(ctx) {
+      try {
+        const got = typeof ctx.get === 'function' ? ctx.get('sessions') : undefined;
+        sessionsHolder.service = got ?? ctx.sessions ?? sessionsHolder.service;
+      } catch {
+      }
+      try {
+        if (typeof ctx.inject === 'function') {
+          ctx.inject(['sessions'], (scoped) => {
+            sessionsHolder.service = scoped.sessions ?? sessionsHolder.service;
+          });
+        }
+      } catch {
+      }
+    }
     function useSessionsFallback(selector) {
       const service = sessionsHolder.service;
       const [, force] = React.useState(0);
@@ -1667,19 +1694,20 @@ window.__ModuleLoader__.load({
       const table = switches ?? {};
       return SWITCH_FIELDS.every((field) => table[field.key] === true);
     }
+
     function degradedPlugin(error) {
-      const cause = error !== null && error !== undefined && error.message ? String(error.message).split('\n')[0] : String(error);
+      const cause = error !== null && error !== undefined && error.message ? String(error.message).split(String.fromCharCode(10))[0] : String(error);
       try {
         if (typeof console !== 'undefined' && typeof console.error === 'function') {
-          console.error(`[dsh-persona-select] 客户端半加载失败：设置页会以降级卡片呈现。首因：${cause}`);
+          console.error('[dsh-persona-select-settings] 客户端半加载失败：会以降级卡片呈现。首因：' + cause);
         }
       } catch {
       }
       function Failure() {
         return h(
           'div',
-          { style: S.root, 'data-plugin': 'dsh-persona-select', 'data-render-state': 'degraded' },
-          h('h2', { style: S.h2 }, 'Persona manager — load failure'),
+          { style: S.root, 'data-plugin': 'dsh-persona-select-settings', 'data-render-state': 'degraded' },
+          h('h2', { style: S.h2 }, '人设管理 — load failure'),
           h('p', { style: S.warn }, cause),
         );
       }
@@ -1689,7 +1717,7 @@ window.__ModuleLoader__.load({
           try {
             ctx.slots.inject('settings.section', () =>
               ctx.slots.register(
-                { name: 'settings.section', id: 'persona-select', order: 31, label: () => '人设管理', inject: () => ({}) },
+                { name: 'settings.section', id: 'dsh-persona-select-settings', order: 31, label: () => '人设管理', inject: () => ({}) },
                 Failure,
               ),
             );
@@ -1705,19 +1733,7 @@ window.__ModuleLoader__.load({
           const locale = ctx.locale;
           const t = typeof locale?.bind === 'function' ? locale.bind(NS) : (key) => key;
           fallbackT = t;
-          try {
-            const got = typeof ctx.get === 'function' ? ctx.get('sessions') : undefined;
-            sessionsHolder.service = got ?? ctx.sessions ?? null;
-          } catch {
-            sessionsHolder.service = null;
-          }
-          try {
-            if (typeof ctx.inject !== 'function') throw new Error('no ctx.inject');
-            ctx.inject(['sessions'], (scoped) => {
-              sessionsHolder.service = scoped.sessions ?? sessionsHolder.service;
-            });
-          } catch {
-          }
+          bindSessionsService(ctx);
           ctx.effect(() => {
             if (typeof locale?.register !== 'function') return undefined;
             try {
@@ -1725,44 +1741,28 @@ window.__ModuleLoader__.load({
             } catch (error) {
               try {
                 if (typeof console !== 'undefined' && typeof console.warn === 'function') {
-                  console.warn('[dsh-persona-select] 语言字典注册失败（已忽略，界面用 key 兜底）：', error?.message ?? String(error));
+                  console.warn('[dsh-persona-select-settings] 语言字典注册失败（已忽略，界面用 key 兜底）：', error?.message ?? String(error));
                 }
               } catch {
               }
               return undefined;
             }
-          }, 'persona-select: 语言字典');
-          const PersonaManager = registerComponentChunk('client.settings.js', 'persona-select', (module) => {
+          }, 'dsh-persona-select-settings: 语言字典');
+          const Component = chunkHost.registerComponentChunk('client.settings.js', 'dsh-persona-select-settings', (module) => {
             const impl = module.create(chunkDeps()).PersonaManagerImpl;
-            return (props) => keyedByHostPresence(impl, props);
-          });
-          const PersonaPicker = registerComponentChunk('client.picker.js', 'persona-select', (module) => {
-            const impl = module.create(chunkDeps()).PersonaPickerImpl;
             return (props) => keyedByHostPresence(impl, props);
           });
           ctx.slots.inject('settings.section', () =>
             ctx.slots.register(
               {
                 name: 'settings.section',
-                id: 'persona-select',
+                id: 'dsh-persona-select-settings',
                 order: 31,
                 label: () => t('nav'),
                 locale: NS,
                 inject: () => ({ t }),
               },
-              PersonaManager,
-            ),
-          );
-          ctx.slots.inject('conversation.input.dock', () =>
-            ctx.slots.register(
-              {
-                name: 'conversation.input.dock',
-                id: 'persona-select',
-                order: 30,
-                locale: NS,
-                inject: (sessionId) => ({ t, sessionId: typeof sessionId === 'string' ? sessionId : '' }),
-              },
-              PersonaPicker,
+              Component,
             ),
           );
         },
@@ -1771,7 +1771,7 @@ window.__ModuleLoader__.load({
     if (h === null) {
       try {
         if (typeof console !== 'undefined' && typeof console.error === 'function') {
-          console.error('[dsh-persona-select] 拿不到 react，客户端半不注册任何槽位；DSH 其余功能不受影响。');
+          console.error('[dsh-persona-select-settings] 拿不到 react，客户端半不注册任何槽位；DSH 其余功能不受影响。');
         }
       } catch {
       }

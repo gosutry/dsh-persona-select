@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-persona-select',
+  id: 'dsh-persona-select-picker',
   chunk: 'client.picker.js',
   factory: function pickerChunk(require) {
     'use strict';

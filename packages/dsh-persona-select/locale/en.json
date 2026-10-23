@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Persona",
+    "description": "Persona body injection and conversation-history context for DSH, split into two independently switchable components."
+  }
+}

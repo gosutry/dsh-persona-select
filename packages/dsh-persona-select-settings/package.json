@@ -1,0 +1,58 @@
+{
+  "name": "dsh-persona-select-settings",
+  "version": "0.4.0-rc4",
+  "private": false,
+  "description": "dsh-persona-select 的设置页组件：人设管理（列表、编辑器、导入导出、历史对话）。独立包根行 → 自己的浏览器半，开关即真实卸载。",
+  "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "icon": "./icon.png",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "client.settings.js",
+    "client.io-export.js",
+    "client.log-import.js",
+    "icon.png",
+    "locale",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "dsh-persona-select": "0.4.0-rc4"
+  },
+  "peerDependenciesMeta": {
+    "dsh-persona-select": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gosutry/dsh-persona-select.git",
+    "directory": "packages/dsh-persona-select-settings"
+  },
+  "homepage": "https://github.com/gosutry/dsh-persona-select#readme",
+  "bugs": {
+    "url": "https://github.com/gosutry/dsh-persona-select/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "persona",
+    "component"
+  ]
+}

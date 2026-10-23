@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-persona-select',
+  id: 'dsh-persona-select-settings',
   chunk: 'client.io-export.js',
   factory: function ioExportChunk(require) {
     'use strict';

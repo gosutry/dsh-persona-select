@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-persona-select',
+  id: 'dsh-persona-select-settings',
   chunk: 'client.log-import.js',
   factory: function logImportChunk(require) {
     'use strict';

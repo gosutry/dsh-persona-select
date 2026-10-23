@@ -1,0 +1,6 @@
+_install-staging/
+_install-backup/
+_test/sandbox/
+_icon_src/candidates/
+node_modules/
+*.tmp.js

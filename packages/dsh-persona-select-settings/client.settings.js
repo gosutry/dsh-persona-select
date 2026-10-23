@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-persona-select',
+  id: 'dsh-persona-select-settings',
   chunk: 'client.settings.js',
   factory: function settingsChunk(require) {
     'use strict';

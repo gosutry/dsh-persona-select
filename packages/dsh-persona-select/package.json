@@ -1,0 +1,62 @@
+{
+  "name": "dsh-persona-select",
+  "version": "0.4.0-rc4",
+  "private": false,
+  "description": "DSH 人设插件：把会话的人设正文注入系统提示词、把历史对话注入上下文。一个插件卡内拆成两个可独立启停的组件——设置页（人设管理）与会话输入区列表；两个组件的浏览器半各自独立，开关即真实卸载。",
+  "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "icon": "./icon.png",
+  "exports": {
+    ".": "./index.js",
+    "./core": "./lib/core/index.js",
+    "./core/owner": "./lib/core/owner.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "lib",
+    "icon.png",
+    "locale",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "dsh-persona-select-picker": "file:../dsh-persona-select-picker",
+    "dsh-persona-select-settings": "file:../dsh-persona-select-settings"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.7-rc.2 <1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gosutry/dsh-persona-select.git",
+    "directory": "packages/dsh-persona-select"
+  },
+  "homepage": "https://github.com/gosutry/dsh-persona-select#readme",
+  "bugs": {
+    "url": "https://github.com/gosutry/dsh-persona-select/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "persona",
+    "system-prompt",
+    "deepseek-harness"
+  ]
+}
