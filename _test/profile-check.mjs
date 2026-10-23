@@ -37,7 +37,6 @@ for (const name of components) {
     const doc = JSON.parse(readFileSync(require.resolve(name + '/locale/' + lang + '.json'), 'utf8'));
     check(typeof doc.meta?.title === 'string', name + ' locale ' + lang, doc.meta?.title);
   }
-  // 组件宿主必须能从 profile 的真实安装布局里导入（这里连内核一起验证）
   try {
     const url = 'file:///' + join(PROFILE_DIR, 'node_modules', name, 'index.js').replace(/\\/g, '/');
     const mod = await import(url);

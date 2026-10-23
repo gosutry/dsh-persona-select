@@ -54,9 +54,6 @@
     });
     const ZSTD_MAGIC = [0x28, 0xb5, 0x2f, 0xfd];
     const CHUNK_NAME_RE = /^client\.[A-Za-z0-9][A-Za-z0-9._-]*\.js$/;
-    /**
-     * 一个包自己的分块加载器（每个 bundle 各自一份 require，避免跨包加载分块）。
-     */
     function createChunkHost(requireFn) {
       const chunkCache = new Map();
       function loadChunk(fileName) {
@@ -692,9 +689,6 @@
       }
     }
     const sessionsHolder = { service: null };
-    /**
-     * 绑定 sessions 服务（幂等）：两个组件 bundle 各自 apply 时都会调一次。
-     */
     function bindSessionsService(ctx) {
       try {
         const got = typeof ctx.get === 'function' ? ctx.get('sessions') : undefined;

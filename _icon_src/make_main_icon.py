@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """最外层（插件卡）图标：从角色原图截脸，压成 256px PNG。
 
 原图：_icon_src/source/face-source.webp（1373x3054）
@@ -15,10 +14,10 @@ PICKER = ROOT / "packages" / "dsh-persona-select-picker" / "icon.png"
 SETTINGS = ROOT / "packages" / "dsh-persona-select-settings" / "icon.png"
 OUT = MAIN / "icon.png"
 SIZE = 256
-SIDE = 0.58          # 裁切边长 = 图宽 * 0.58
-CENTER_X = 0.52      # 脸中心（占图宽比例）
-CENTER_Y = 0.135     # 脸中心（占图高比例）
-RADIUS = 0.22        # 圆角半径（和组件图标一致）
+SIDE = 0.58
+CENTER_X = 0.52
+CENTER_Y = 0.135
+RADIUS = 0.22
 
 
 def rounded_mask(size, radius_ratio=RADIUS):

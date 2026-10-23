@@ -455,7 +455,6 @@ window.__ModuleLoader__.load({
       };
       const onClearHistory = () => {
         if (historyBusy) return;
-        // Remember the exact box content (saved or not) so undo restores what was cleared.
         setHistoryClearedSnapshot(historyText);
         setHistoryText('');
         setHistoryEpoch((n) => n + 1);

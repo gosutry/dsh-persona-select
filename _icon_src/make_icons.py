@@ -1,5 +1,4 @@
 
-# -*- coding: utf-8 -*-
 """dsh-persona-select icons: one plugin, three rows (core + two components)."""
 import math
 from pathlib import Path
@@ -125,8 +124,6 @@ def save(img, path):
     img.resize((OUT, OUT), Image.LANCZOS).save(path, "PNG", optimize=True)
 
 
-# 主包（最外层/插件卡）图标是角色原图截脸，由 make_main_icon.py 生成；
-# 这里只画两个组件行图标。
 icons = [
     ("settings", settings_icon(), SETTINGS_DIR / "icon.png"),
     ("picker", picker_icon(), PICKER_DIR / "icon.png"),

@@ -63,7 +63,6 @@ function check(condition, message) {
 }
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// ---- picker bundle ----
 loadScript('packages/dsh-persona-select-picker/client.js');
 loadScript('packages/dsh-persona-select-picker/client.picker.js');
 check(registrations.has('dsh-persona-select-picker'), 'picker bundle id is its package name');
@@ -78,7 +77,6 @@ check(pickerMock.locales.includes('dsh-persona-select-picker'), 'picker uses its
 const pickerNode = pickerMock.slots[0].comp({ t: (k) => k });
 check(typeof pickerNode.type === 'function', 'picker chunk loaded and built a component');
 
-// ---- settings bundle ----
 loadScript('packages/dsh-persona-select-settings/client.js');
 loadScript('packages/dsh-persona-select-settings/client.settings.js');
 loadScript('packages/dsh-persona-select-settings/client.io-export.js');
@@ -97,7 +95,6 @@ const io = await settingsRequire.async('./client.io-export.js');
 const log = await settingsRequire.async('./client.log-import.js');
 check(typeof io.create === 'function' && typeof log.create === 'function', 'settings chunks io-export + log-import load');
 
-// ---- host: core owner refcount ----
 const owner = await import('file:///' + (ROOT + '/packages/dsh-persona-select/lib/core/owner.js').replace(/\\/g, '/'));
 let captured = null;
 const disposed = [];

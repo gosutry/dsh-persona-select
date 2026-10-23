@@ -9,7 +9,6 @@ export const PACKAGES = [
   'dsh-persona-select-settings',
 ];
 
-/** 把三个包复制到 _test/sandbox/node_modules，模拟装进 profile 后的解析布局。 */
 export async function prepareSandbox() {
   const modules = join(ROOT, '_test', 'sandbox', 'node_modules');
   await mkdir(modules, { recursive: true });

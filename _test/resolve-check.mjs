@@ -16,7 +16,6 @@ const iconOk = (file) => {
     && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
 };
 
-// ---- 主包：卡片 ----
 const mainPkgPath = require.resolve('dsh-persona-select/package.json');
 const mainPkg = JSON.parse(readFileSync(mainPkgPath, 'utf8'));
 const mainDir = dirname(mainPkgPath);
@@ -37,7 +36,6 @@ for (const dep of Object.keys(mainPkg.dependencies ?? {})) {
 check(existsSync(join(mainDir, 'lib', 'core', 'index.js')), 'main ships the host core');
 check(existsSync(join(mainDir, 'lib', 'core', 'owner.js')), 'main ships the core owner');
 
-// ---- 组件包：每个都有自己的浏览器半 ----
 for (const name of ['dsh-persona-select-picker', 'dsh-persona-select-settings']) {
   const pkg = JSON.parse(readFileSync(require.resolve(name + '/package.json'), 'utf8'));
   const dir = dirname(require.resolve(name + '/package.json'));

@@ -11,13 +11,11 @@ const check = (ok, label, extra = '') => {
   if (!ok) failed++;
 };
 
-// 主包 patch 声明的两个组件行（与 cordis.patch.yml 保持一致）
 const yaml = readFileSync(join(ROOT, 'packages', 'dsh-persona-select', 'cordis.patch.yml'), 'utf8');
 const rows = [...yaml.matchAll(/name:\s*(\S+)/g)].map((m) => m[1]);
 check(rows.length === 2, 'main patch declares exactly two component rows', rows.join(', '));
 check(rows.includes('dsh-persona-select-picker') && rows.includes('dsh-persona-select-settings'), 'rows name the two component packages');
 
-// 复刻 dsh-client-modules 的 locatePkgJson + nearestPackage
 function exactPackageSpecifier(specifier) {
   if (specifier.startsWith('@')) {
     const parts = specifier.split('/');
@@ -66,11 +64,9 @@ for (const row of rows) {
 }
 check(seen.size === 2, 'two distinct component bundles (each row gets its own browser half)');
 
-// 主包本身是 bundle（卡片），不产生浏览器半
 const mainPkg = JSON.parse(readFileSync(require.resolve('dsh-persona-select/package.json'), 'utf8'));
 check(mainPkg.dsh.bundle !== undefined && mainPkg.dsh.client === undefined, 'main package is the card only');
 
-// 组件行的标题/图标来自各自包根 manifest
 for (const row of rows) {
   const pkg = JSON.parse(readFileSync(require.resolve(row + '/package.json'), 'utf8'));
   check(typeof pkg.icon === 'string' && existsSync(join(dirname(require.resolve(row + '/package.json')), pkg.icon)), row + ' manifest icon resolves');

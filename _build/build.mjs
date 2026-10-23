@@ -1,8 +1,3 @@
-#!/usr/bin/env node
-/**
- * 把主包里的共享层（lib/client/shared.js）拼进两个组件包的 client bundle。
- * 两个组件各是一个包（只有包根行才会装配浏览器半），共享的样式/文案/钩子各自内联一份。
- */
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
