@@ -1,0 +1,40 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify manifests
+        run: |
+          for p in packages/*; do
+            node -e "const m=require('./$p/package.json'); if(m.private) throw new Error(m.name + ' is private'); console.log('publishing', m.name, m.version)"
+          done
+
+      - name: Publish components first
+        run: |
+          npm publish ./packages/dsh-persona-select-picker --access public --tag rc
+          npm publish ./packages/dsh-persona-select-settings --access public --tag rc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish main package
+        run: npm publish ./packages/dsh-persona-select --access public --tag rc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
