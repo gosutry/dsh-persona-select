@@ -11,6 +11,40 @@
 
 ## 中文
 
+### 安装（0.4.0 起是三个包）
+
+0.4.0 起本插件拆成三个包，功能才完整：
+
+| 包 | 作用 |
+| --- | --- |
+| `dsh-persona-select` | 插件卡 + 内核库（`lib/core/`），自身不带加载入口 |
+| `dsh-persona-select-picker` | 对话输入区的人设选择器 |
+| `dsh-persona-select-settings` | 设置页的「人设管理」 |
+
+三个包要一起装，并且并排放在同一个 `node_modules` 下：两个组件用 `../dsh-persona-select/lib/core/owner.js` 认领内核，缺一个或放不同级，组件行就解析不到。
+
+装法（以 `<DSH_HOME>/profiles/web` 这层 profile 为例）：
+
+1. 三个包目录放进 `<DSH_HOME>/plugin-src/`，目录名保持包名；
+2. 在 `profiles/web/node_modules/` 给三个包各建一条链接；
+3. `profiles/web/package.json` 的 `dependencies` 加三条 `link:`；`bundles` 里只保留 `dsh-persona-select`，组件不要进 `bundles`（它们由主包的 `cordis.patch.yml` 插入）；
+4. 重启 DSH，插件卡下面会出现两行组件（各带图标和开关）。
+
+只装主包时：插件卡还在，但设置页没有人设管理、输入区没有选择器、系统提示词也不会注入——内核要等组件加载时才被认领。
+
+### 在 DSHA（手机版）上被自动停用怎么办
+
+DSHA 会记录插件上次启动有没有「加载完成」。如果第一次启动时组件还没装好，主包自身没有加载入口，DSHA 会在下次**启动之前**把整个插件停用（写 `<name>.disabled` 标记、从 `bundles` 移除），表现就是「重启一次就被重置」。
+
+恢复：
+
+1. 先把三个包装齐（见上）；
+2. 插件管理里重新启用 `dsh-persona-select`（第三方插件必须走原生审阅）；
+3. 如果它仍被停用：把 `plugin-activations.json` 里这条的 `status` 改成 `loaded`，再把 `dsh-persona-select` 加回 `bundles`、删掉 `node_modules/dsh-persona-select.disabled`；
+4. 重启。
+
+成功后启动日志里会出现两条 `正在加载插件：dsh-persona-select`（picker / settings 各一条）和 `插件加载完成`，之后就不会再被停用了。
+
 ### 这个插件做什么
 
 它负责两件事：把一段文字送进**系统提示词**，把一段对话送进**上下文**。为了说清楚，本文与插件设置界面统一使用两个叫法：
@@ -117,6 +151,40 @@
 ---
 
 ## English
+
+### Installation (three packages since 0.4.0)
+
+Since 0.4.0 the plugin is split into three packages:
+
+| Package | Role |
+| --- | --- |
+| `dsh-persona-select` | the plugin card plus the core library (`lib/core/`), with no loadable entry of its own |
+| `dsh-persona-select-picker` | the persona picker next to the conversation input |
+| `dsh-persona-select-settings` | the "Persona management" section in settings |
+
+Install all three, side by side in the same `node_modules`: both components claim the core through `../dsh-persona-select/lib/core/owner.js`, so a missing or misplaced package leaves the component rows unresolvable.
+
+For a profile at `<DSH_HOME>/profiles/web`:
+
+1. put the three package directories under `<DSH_HOME>/plugin-src/`, keeping the package names;
+2. link each of them into `profiles/web/node_modules/`;
+3. add three `link:` entries to `dependencies` in `profiles/web/package.json`; keep only `dsh-persona-select` in `bundles` — the components are inserted by the main package's `cordis.patch.yml`, so they must not be listed there;
+4. restart DSH; the plugin card then shows two component rows, each with its own icon and switch.
+
+With the main package alone the card still appears, but settings has no persona management, the input area has no picker, and nothing is injected into the system prompt — the core is only claimed when a component loads.
+
+### If DSHA (mobile) auto-disables the plugin
+
+DSHA records whether a plugin finished loading on its last start. If the components were missing on the very first start, the main package has no loadable entry to confirm, so DSHA disables the whole plugin **before** the next start (writes a `<name>.disabled` marker and drops it from `bundles`) — it looks like the plugin gets reset on every restart.
+
+To recover:
+
+1. install all three packages first;
+2. re-enable `dsh-persona-select` from the native plugin manager (third-party plugins require that review);
+3. if it is still disabled, set its `status` to `loaded` in `plugin-activations.json`, add `dsh-persona-select` back to `bundles`, and remove `node_modules/dsh-persona-select.disabled`;
+4. restart.
+
+A successful start logs two `loading plugin: dsh-persona-select` lines (picker / settings) and `plugin loaded`, and it will not be disabled again.
 
 ### What this plugin does
 
