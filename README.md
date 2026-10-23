@@ -4,18 +4,6 @@
 >
 > Bilingual README. [中文](#中文) · [English](#english)
 
-## 安装
-
-本插件由三个包组成，**必须分别安装**（不要只装主包），三个包都作为 profile 的直接依赖：
-
-```powershell
-dsh plugin --profile desktop add "file:<仓库路径>\packages\dsh-persona-select-picker"
-dsh plugin --profile desktop add "file:<仓库路径>\packages\dsh-persona-select-settings"
-dsh plugin --profile desktop add "file:<仓库路径>\packages\dsh-persona-select"
-```
-
-装完重启 DSH。两个组件各自带浏览器半，停用任一个不会连累另一个。
-
 ---
 <img width="672" height="212" alt="啥子鱼思考" src="https://github.com/user-attachments/assets/0f414cd7-0a1a-4675-8f3e-445488808916" />
 
