@@ -90,6 +90,6 @@ PY
 cat <<'MSG'
 
 装好了，重启 DSH 后生效。
-重启后插件卡下面应出现三行：persona-select-core / picker / settings，
+重启后插件卡下面应出现两行：picker / settings，
 对话输入区有人设选择器，设置里有「人设管理」。
 MSG
