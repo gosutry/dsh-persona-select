@@ -17,6 +17,7 @@
   "files": [
     "index.js",
     "cordis.patch.yml",
+    "install.sh",
     "lib",
     "icon.png",
     "locale",
