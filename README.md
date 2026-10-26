@@ -112,7 +112,7 @@
 
 ### 内置人设声明
 
-插件中“鲸鱼娘”的形象描述来自[@ZipZipPipe](https://space.bilibili.com/4168597)，遵守CC BY-NC-SA 4.0协议再创作并开源，请尊重相关形象创造者。
+插件中“鲸鱼娘、Claude娘、GPT娘、Qwen娘、GLM娘、Kimi娘”的形象描述来自[@ZipZipPipe](https://space.bilibili.com/4168597)，部分提示词来自项目 [ai-chan-sheets](https://github.com/lmy414/ai-chan-sheets)，遵守CC BY-NC-SA 4.0协议再创作并开源，请尊重相关形象创造者。
 
 ---
 
@@ -219,7 +219,7 @@ Settings page and conversation picker follow the host language, with Simplified 
 
 ### Built-in persona notice
 
-The “DeepSeek chan” likeness used by the built-in persona comes from [@ZipZipPipe](https://space.bilibili.com/4168597); it is re-created and open-sourced under the CC BY-NC-SA 4.0 licence. Please respect the creator of the likeness.
+The “DeepSeek chan, Claude chan, GPT chan, Qwen chan, GLM chan, Kimi chan” likeness used by the built-in persona comes from [@ZipZipPipe](https://space.bilibili.com/4168597), part of the prompts comes from the [ai-chan-sheets](https://github.com/lmy414/ai-chan-sheets) project; it is re-created and open-sourced under the CC BY-NC-SA 4.0 licence. Please respect the creator of the likeness.
 
 ---
 
