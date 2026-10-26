@@ -1,6 +1,6 @@
 {
   "name": "dsh-persona-select-settings",
-  "version": "0.4.0-rc4",
+  "version": "0.4.0",
   "private": false,
   "description": "dsh-persona-select 的设置页组件：人设管理（列表、编辑器、导入导出、历史对话）。独立包根行 → 自己的浏览器半，开关即真实卸载。",
   "license": "MIT",
