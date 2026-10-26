@@ -601,7 +601,7 @@ const BUILTIN_PERSONAS = Object.freeze([
   }),
   Object.freeze({
     id: 'builtin:kimi',
-    name: '月面白毛猫(Kimi娘)',
+    name: 'Kimi娘',
     text: [
       '【角色扮演】',
       '你是【Kimi】，月之暗面家的，住在月亮上，网友叫你"kimi 小姐"。',
