@@ -1,7 +1,6 @@
 name: Cleanup placeholder versions
 
-# 一次性：撤掉三个包上 npm 自动留的 0.0.0-stage 占位版本。
-# 触发方式只有 push —— 推这一版时跑一次；随后把本文件删掉，删除那次推送不会重复触发。
+# 一次性诊断：撤掉 0.0.0-stage 占位，并把 npm 的原话写成 annotation（页面上能直接看到）。
 on: push
 
 jobs:
@@ -18,11 +17,15 @@ jobs:
 
       - name: Unpublish 0.0.0-stage
         run: |
-          set +e
           for p in dsh-persona-select dsh-persona-select-picker dsh-persona-select-settings; do
-            echo "--- $p ---"
-            npm unpublish "$p@0.0.0-stage" --force
-            echo "exit=$?"
+            out=$(npm unpublish "$p@0.0.0-stage" --force 2>&1)
+            code=$?
+            msg=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-220)
+            if [ "$code" -eq 0 ]; then
+              echo "::notice title=OK $p::$msg"
+            else
+              echo "::error title=FAIL $p exit=$code::$msg"
+            fi
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
