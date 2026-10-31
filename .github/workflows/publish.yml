@@ -26,12 +26,12 @@ jobs:
 
       - name: Publish components first
         run: |
-          npm publish ./packages/dsh-persona-select-picker --access public --tag rc
-          npm publish ./packages/dsh-persona-select-settings --access public --tag rc
+          npm publish ./packages/dsh-persona-select-picker --access public
+          npm publish ./packages/dsh-persona-select-settings --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish main package
-        run: npm publish ./packages/dsh-persona-select --access public --tag rc
+        run: npm publish ./packages/dsh-persona-select --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
