@@ -1,0 +1,70 @@
+name: Release v0.4.1
+
+# 一次性：从 tag v0.4.1 打一个包含三个子包 + install.sh 的 tarball，建成 Release 并挂附件。
+# 用仓库自带的 GITHUB_TOKEN（只对本仓库有效）。跑完后本文件会被删掉。
+on: push
+
+jobs:
+  release:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build tarball from tag
+        run: |
+          git fetch --tags --force
+          git archive --format=tar --prefix=dsh-persona-select-0.4.1/ v0.4.1 packages | gzip -9 > dsh-persona-select-0.4.1.tar.gz
+          ls -l dsh-persona-select-0.4.1.tar.gz
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > notes.md <<'EOF'
+          ## dsh-persona-select 0.4.1
+
+          **现在可以直接从 npm 装了**：三个包都已发布到 npm，装主包会把自己的两个组件一起带下来。
+
+          ```sh
+          dsh plugin --profile desktop add dsh-persona-select@0.4.1
+          # 或者
+          npm i dsh-persona-select
+          ```
+
+          ### 📦 三个包都在 npm
+
+          | 包 | 版本 | 作用 |
+          | --- | --- | --- |
+          | [dsh-persona-select](https://www.npmjs.com/package/dsh-persona-select) | 0.4.1 | 插件卡 + 共享内核（注入 / 存储） |
+          | [dsh-persona-select-picker](https://www.npmjs.com/package/dsh-persona-select-picker) | 0.4.1 | 会话输入区的人设列表（自己的浏览器半） |
+          | [dsh-persona-select-settings](https://www.npmjs.com/package/dsh-persona-select-settings) | 0.4.1 | 设置页「人设管理」（自己的浏览器半） |
+
+          ### 🩹 这一版修的是安装
+
+          - 主包此前把两个组件写成 optional `peerDependencies`：装主包不会带上它们，patch 里两行组件行因此在 `node_modules` 里解析不到，设置页和输入区列表都不会出现。
+          - 0.4.1 起改成真实 `dependencies`（锁 0.4.1），组件包把自己的反向依赖写成 optional peer，仅作说明。
+          - 三个包版本号统一为 0.4.1；功能与 0.4.0 一致。
+
+          ### 📥 不走 npm 的安装方式
+
+          下面的附件里是三个包 + `install.sh`（三个目录同级）：
+
+          ```sh
+          tar -xzf dsh-persona-select-0.4.1.tar.gz
+          cd dsh-persona-select-0.4.1
+          bash packages/dsh-persona-select/install.sh desktop
+          ```
+
+          脚本最后一步需要 `python3`。
+
+          ### ✅ 校验点
+
+          - 安装后重启 DSH，设置里应出现「人设管理」，输入框旁应出现人设列表。
+          - 数据仍在 `<DSH_HOME>/persona-select/personas.json`，升级不迁移、不丢。
+          EOF
+          gh release create v0.4.1 dsh-persona-select-0.4.1.tar.gz --title "v0.4.1" --notes-file notes.md
