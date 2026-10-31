@@ -1,31 +1,47 @@
 name: Cleanup placeholder versions
 
-# 一次性诊断：撤掉 0.0.0-stage 占位，并把 npm 的原话写成 annotation（页面上能直接看到）。
+# 一次性：撤 0.0.0-stage 占位，并把 npm 原话写回仓库（cleanup-result.md），
+# 这样结果不依赖日志页面也能核对。结果提交带 [skip ci]，不会再触发自己。
 on: push
 
 jobs:
   cleanup:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Unpublish 0.0.0-stage
+      - name: Unpublish and record
         run: |
+          {
+            echo "# cleanup result"
+            echo
+            echo "commit: ${{ github.sha }}"
+            date -u
+            echo
+          } > cleanup-result.md
           for p in dsh-persona-select dsh-persona-select-picker dsh-persona-select-settings; do
-            out=$(npm unpublish "$p@0.0.0-stage" --force 2>&1)
-            code=$?
-            msg=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-220)
-            if [ "$code" -eq 0 ]; then
-              echo "::notice title=OK $p::$msg"
-            else
-              echo "::error title=FAIL $p exit=$code::$msg"
-            fi
+            echo "## $p" >> cleanup-result.md
+            npm unpublish "$p@0.0.0-stage" --force >> cleanup-result.md 2>&1
+            echo "" >> cleanup-result.md
+            echo "exit=$?" >> cleanup-result.md
+            echo "" >> cleanup-result.md
           done
+          cat cleanup-result.md
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit result
+        run: |
+          git config user.name "dsh-cleanup-bot"
+          git config user.email "dsh-cleanup-bot@users.noreply.github.com"
+          git add cleanup-result.md
+          git commit -m "chore: cleanup result [skip ci]" || echo "nothing to commit"
+          git push
