@@ -1,7 +1,7 @@
 name: Cleanup placeholder versions
 
-# 一次性：撤 0.0.0-stage 占位，并把 npm 原话写回仓库（cleanup-result.md），
-# 这样结果不依赖日志页面也能核对。结果提交带 [skip ci]，不会再触发自己。
+# 一次性：撤 0.0.0-stage 占位，并把 npm 原话写回仓库（cleanup-result.md）。
+# 结果提交带 [skip ci]，不会再触发自己。
 on: push
 
 jobs:
@@ -23,15 +23,12 @@ jobs:
           {
             echo "# cleanup result"
             echo
-            echo "commit: ${{ github.sha }}"
             date -u
             echo
           } > cleanup-result.md
           for p in dsh-persona-select dsh-persona-select-picker dsh-persona-select-settings; do
             echo "## $p" >> cleanup-result.md
-            npm unpublish "$p@0.0.0-stage" --force >> cleanup-result.md 2>&1
-            echo "" >> cleanup-result.md
-            echo "exit=$?" >> cleanup-result.md
+            npm unpublish "$p@0.0.0-stage" --force >> cleanup-result.md 2>&1 || echo "exit=$?" >> cleanup-result.md
             echo "" >> cleanup-result.md
           done
           cat cleanup-result.md
