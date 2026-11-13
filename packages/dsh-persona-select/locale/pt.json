@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Troca rápida de persona",
+    "description": "Plugin do DSH que injeta o texto da persona na instrução do sistema e o histórico de conversa no contexto, com a persona comunitária da garota-baleia incluída. Neste texto e nas configurações do plugin, injetar na instrução do sistema chama-se «texto da persona», e no contexto, «histórico de conversa». As personas são salvas como predefinição «persona» no gerenciamento; o texto e o histórico salvos podem ser exportados como arquivo JSON ou como PNG com os dados embutidos e a própria imagem como capa. A posição da injeção é editável. Ele suprime os segmentos de instrução do próprio DSH, o contexto runtime, as ferramentas de esquema e outro conteúdo do lado user, para que só a conversa chegue ao modelo, com um canal de manutenção de ferramentas que evita respostas só de texto após usar ferramentas. O histórico é importado direto dos registros de sessão /export do DSH, envolto em tags nos moldes das dele. Configurações e persona são guardadas por conversa; trocar de persona ou marcar opções não afeta conversas novas nem em andamento."
+  }
+}

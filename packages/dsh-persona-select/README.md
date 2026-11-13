@@ -108,7 +108,7 @@
 
 ### 界面
 
-设置页与对话界面均跟随宿主语言，内置中文 / English 两套文案。
+设置页与对话界面均跟随宿主语言，内置简体中文 / English / 日本語 / Español / Français / Deutsch / Русский / Português 八套文案；插件卡片的标题与描述同样有这八种。宿主新增的其他语言会回落到英文。
 
 ### 内置人设声明
 
@@ -215,7 +215,7 @@ The "Persona" dropdown under the mode selector:
 
 ### Interface
 
-Settings page and conversation picker follow the host language, with Simplified Chinese and English built in.
+Settings page and conversation picker follow the host language, with Simplified Chinese, English, Japanese, Spanish, French, German, Russian and Portuguese built in; the plugin card title and description carry the same eight languages. Any other host language falls back to English.
 
 ### Built-in persona notice
 

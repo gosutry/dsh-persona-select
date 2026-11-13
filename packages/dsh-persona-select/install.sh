@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把 0.4.0 的“一张卡 + 两个组件”一次装齐：
+# 把 0.4.2 的“一张卡 + 两个组件”一次装齐：
 #   1) 三个包复制进 <DSH_HOME>/plugin-src
 #   2) 在 profile 的 node_modules 建链接
 #   3) package.json 的 dependencies 补 link:

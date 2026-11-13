@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Cambio rápido de persona",
+    "description": "Plugin de DSH que inyecta el texto de la persona en la indicación del sistema y el historial de conversación en el contexto, con la persona comunitaria de la chica ballena incluida. En este texto y en los ajustes del plugin, inyectar en la indicación del sistema se llama «texto de la persona» y en el contexto, «historial de conversación». Las personas se guardan como preajustes «persona» en la gestión de personas; el texto y el historial guardados se exportan como archivo JSON o como PNG con los datos incrustados y la propia imagen como portada. La posición de inyección es editable. Permite suprimir los segmentos de indicación del propio DSH, el contexto runtime, las herramientas de esquema y otro contenido del lado user, de modo que al modelo solo llegue la conversación, con un canal de mantenimiento de herramientas que evita respuestas solo de texto tras usar herramientas. El historial se importa directamente de los registros de sesión /export de DSH, envuelto en etiquetas imitando las suyas. Ajustes y persona se guardan por conversación; cambiarla o marcar opciones no afecta a conversaciones nuevas ni en curso."
+  }
+}

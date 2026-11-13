@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Changement rapide de persona",
+    "description": "Plugin DSH qui injecte le texte de la persona dans l’invite système et l’historique de conversation dans le contexte, avec la persona communautaire de la fille-baleine intégrée. Dans ce texte et dans les réglages du plugin, l’injection dans l’invite système s’appelle « texte de la persona », celle dans le contexte « historique de conversation ». Les personas se sauvegardent en préréglages « persona » dans la gestion ; le texte et l’historique sauvegardés s’exportent en fichier JSON ou en PNG avec les données incrustées et l’image comme couverture. La position d’injection est modifiable. Il peut supprimer les segments d’invite propres à DSH, le contexte runtime, les outils de schéma et d’autres contenus côté user, pour que seule la conversation parvienne au modèle, avec un canal de maintien des outils qui évite les réponses purement textuelles après usage. L’historique s’importe directement des journaux de session /export de DSH, encadré de balises imitant les siennes. Réglages et persona sont stockés par conversation ; en changer ou cocher des options n’affecte ni les nouvelles conversations ni celles en cours."
+  }
+}

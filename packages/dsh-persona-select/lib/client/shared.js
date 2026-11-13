@@ -432,6 +432,7 @@
         return { value: table[key], writable: true, enumerable: true, configurable: true };
       },
     });
+    /*@EXTRA_LOCALES@*/
     const SWITCH_FIELDS = [
       { key: 'soloOnly', label: 'swSoloLabel', hint: 'swSoloHint' },
       { key: 'stripRuntime', label: 'swRuntimeLabel', hint: 'swRuntimeHint' },

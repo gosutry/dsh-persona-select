@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Persona schnell wechseln",
+    "description": "DSH-Plugin, das Persona-Text in die Systemanweisung und Gesprächsverlauf in den Kontext injiziert, mit der integrierten Community-Persona des Wal-Mädchens. In diesem Text und in den Plugin-Einstellungen heißt die Injektion in die Systemanweisung „Persona-Text“, die in den Kontext „Gesprächsverlauf“. Personas lassen sich in der Persona-Verwaltung als Voreinstellung „Persona“ speichern; gespeicherter Text und Verlauf lassen sich als JSON-Datei oder als PNG mit eingebetteten Daten (das Bild selbst als Cover) exportieren. Die Injektionsposition ist editierbar. Es kann DSH-eigene Systemanweisungs-Abschnitte, Runtime-Kontext, Schema-Tools und weitere user-seitige Inhalte unterdrücken, sodass nur das Gespräch beim Modell ankommt; ein Tool-Keep-alive-Kanal verhindert reine Textantworten nach Tool-Nutzung. Der Verlauf lässt sich direkt aus den /export-Sitzungsprotokollen von DSH importieren, eingefasst in DSH nachempfundene Tags. Einstellungen und Persona werden pro Gespräch gespeichert; Wechsel oder Häkchen wirken nicht auf neue oder laufende Gespräche."
+  }
+}
