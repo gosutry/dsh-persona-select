@@ -1,0 +1,25 @@
+name: Attach v0.4.2 asset
+
+on:
+  workflow_dispatch:
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build package
+        run: |
+          mkdir -p dsh-persona-select-0.4.2
+          cp -r packages _build dsh-persona-select-0.4.2/
+          tar -czf dsh-persona-select-0.4.2.tar.gz dsh-persona-select-0.4.2
+          sha256sum dsh-persona-select-0.4.2.tar.gz
+
+      - name: Upload asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload v0.4.2 dsh-persona-select-0.4.2.tar.gz --clobber
