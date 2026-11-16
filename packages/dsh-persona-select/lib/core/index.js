@@ -45,7 +45,7 @@ import {
   writeStoreFile,
 } from './store.js';
 const PLUGIN_NAME = 'dsh-persona-select';
-const PLUGIN_VERSION = '0.5.0';
+const PLUGIN_VERSION = '0.5.1';
 const ROUTE_PREFIX = '/persona-select';
 const SECTION_NAME = 'plugin:persona-select';
 const HISTORY_PROJECTION_KEY = 'personaSelectHistory';
