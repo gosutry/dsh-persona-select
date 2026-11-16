@@ -45,7 +45,7 @@ import {
   writeStoreFile,
 } from './store.js';
 const PLUGIN_NAME = 'dsh-persona-select';
-const PLUGIN_VERSION = '0.4.0';
+const PLUGIN_VERSION = '0.5.0';
 const ROUTE_PREFIX = '/persona-select';
 const SECTION_NAME = 'plugin:persona-select';
 const HISTORY_PROJECTION_KEY = 'personaSelectHistory';
@@ -55,15 +55,21 @@ const EXPORT_MIMES = new Set(['application/json', 'image/png']);
 const MAX_HISTORY_BODY_BYTES = 16 * 1024 * 1024;
 const MAX_RECORDED_SECTIONS = 64;
 const DEFERRED_WRITE_MS = 250;
+/** 历史注入来源：工作区指令链（AGENTS.md / CLAUDE.md）与每步追加的时间读数。 */
 const STRIPPED_SOURCE_KINDS = ['agent-instructions', 'time-context'];
-const RUNTIME_BLOCK_FORMS = new Map([
-  ['runtime-context', 'snapshot'],
-  ['skill-catalog', 'catalog'],
-]);
+/**
+ * 运行时快照来源。dsh 0.2.2 起 `runtime-context` 有两种形态：带 sections 的
+ * snapshot，以及清空后的 CLEARED（不带 form）—— 两种都不该下发；技能目录走
+ * `skill-catalog`。这里按 kind 判定，不再依赖 form 字段。
+ */
+const RUNTIME_BLOCK_KINDS = ['runtime-context', 'skill-catalog'];
+function isInjectedSource(source) {
+  if (source === null || source === undefined || typeof source !== 'object') return false;
+  return STRIPPED_SOURCE_KINDS.includes(source.kind);
+}
 function isRuntimeBlockSource(source) {
   if (source === null || source === undefined || typeof source !== 'object') return false;
-  const form = RUNTIME_BLOCK_FORMS.get(source.kind);
-  return form !== undefined && source.form === form;
+  return RUNTIME_BLOCK_KINDS.includes(source.kind);
 }
 export const inject = ['webServer', 'connection', 'systemPrompt'];
 function sendJson(res, status, body) {
@@ -1483,7 +1489,6 @@ function mount(ctx, config, cleanups) {
     handoffs: new Map(),
   };
   reload(state);
-  const runtime = { agents: new Map(), agentSuppressors: new Map() };
   const effect = (label, factory) => {
     const disposer = ctx.effect(factory, label);
     if (typeof disposer !== 'function') {
@@ -1491,64 +1496,27 @@ function mount(ctx, config, cleanups) {
     }
     cleanups.push(disposer);
   };
-  function syncAgentSuppressor(state, agent) {
-    try {
-      if (agent === null || typeof agent !== 'object') return;
-      const sessionId = sessionIdOf(agent);
-      if (sessionId === null) return;
-      if (runtime.agents.get(sessionId) !== agent) runtime.agents.set(sessionId, agent);
-      if (runtime.agents.size > MAX_REMEMBERED_SESSIONS) pruneDeadAgents(state, ctx);
-      const wanted = switchValueOf(state.doc, sessionId, 'stripRuntime') === true;
-      let held = runtime.agentSuppressors.get(sessionId);
-      if (held !== undefined && held.agent !== agent) {
-        runtime.agentSuppressors.delete(sessionId);
-        if (held.disposer !== null) {
-          try {
-            held.disposer();
-          } catch {
-          }
-        }
-        held = undefined;
-      }
-      if (wanted && held === undefined) {
-        const scoped = agent.ctx;
-        if (scoped === undefined || scoped === null || scoped.systemPrompt === undefined) return;
-        const disposer = scoped.systemPrompt.suppressRuntimeContext();
-        runtime.agentSuppressors.set(sessionId, {
-          agent,
-          disposer: typeof disposer === 'function' ? disposer : null,
-        });
-      } else if (!wanted && held !== undefined) {
-        runtime.agentSuppressors.delete(sessionId);
-        if (held.disposer !== null) held.disposer();
-      }
-    } catch {
-    }
+  /**
+   * 该会话要压掉的来源判定。dsh 0.2.2 的请求由会话表面派生
+   * （session.deriveMessages），已落盘的注入在 pre-step 拦不住，只能请求级拦；
+   * 这里返回一个统一判定函数，供 pre-step 与 llm/stream 两处共用。
+   */
+  function stripPredicateFor(sessionId) {
+    const stripInjected = switchValueOf(state.doc, sessionId, 'stripInjected') === true;
+    const stripRuntime = switchValueOf(state.doc, sessionId, 'stripRuntime') === true;
+    if (!stripInjected && !stripRuntime) return null;
+    return (source) => {
+      if (stripInjected && isInjectedSource(source)) return true;
+      if (stripRuntime && isRuntimeBlockSource(source)) return true;
+      return false;
+    };
   }
-  function pruneDeadAgents(state, ctx) {
-    const agents = typeof ctx.get === 'function' ? ctx.get('agents') : undefined;
-    if (agents === undefined || agents === null || typeof agents.get !== 'function') return 0;
-    let removed = 0;
-    for (const sessionId of [...runtime.agents.keys()]) {
-      if (agents.get(sessionId) !== undefined) continue;
-      runtime.agents.delete(sessionId);
-      releaseAgentSection(state, sessionId);
-      removed += 1;
-    }
-    return removed;
-  }
-  function syncAllSuppressors(state) {
-    for (const agent of [...runtime.agents.values()]) syncAgentSuppressor(state, agent);
-  }
-  function releaseAgentSuppressor(sessionId) {
-    if (typeof sessionId !== 'string' || sessionId === '') return;
-    const held = runtime.agentSuppressors.get(sessionId);
-    runtime.agentSuppressors.delete(sessionId);
-    if (held === undefined || held.disposer === null) return;
-    try {
-      held.disposer();
-    } catch {
-    }
+  /** 运行时快照的正文来自系统提示词装配里的 contexts；装配期就摘掉，别等它变成消息。 */
+  function stripRuntimeContexts(assembly) {
+    const contexts = Array.isArray(assembly?.contexts) ? assembly.contexts : [];
+    if (contexts.length === 0) return null;
+    const kept = contexts.filter((entry) => entry?.required === true);
+    return kept.length === contexts.length ? null : { ...assembly, contexts: kept };
   }
   effect(`${PLUGIN_NAME}: 取件表定时清理`, () => {
     const timer = setInterval(() => {
@@ -1977,7 +1945,6 @@ function mount(ctx, config, cleanups) {
                 for (const key of SWITCH_KEYS) target[key] = true;
               }
             });
-            syncAllSuppressors(state);
             sendJson(res, 200, {
               ok: true,
               touched,
@@ -2092,7 +2059,6 @@ function mount(ctx, config, cleanups) {
           try {
             syncSection(state, ctx);
             ensureAgentSection(state, ctx, agentForSession);
-            syncAgentSuppressor(state, agentForSession);
           } catch {
           }
           const wanted = text !== '';
@@ -2155,6 +2121,10 @@ function mount(ctx, config, cleanups) {
             state.assembly.after = null;
             rememberAssembly(state, sessionId, { before: null, after: null });
           }
+          if (switchValueOf(state.doc, sessionId, 'stripRuntime') === true) {
+            const trimmed = stripRuntimeContexts(rewritten);
+            if (trimmed !== null) rewritten = trimmed;
+          }
         } catch {
           rewritten = downstream;
         }
@@ -2185,7 +2155,6 @@ function mount(ctx, config, cleanups) {
           }
         }
         ensureAgentSection(state, ctx, agent);
-        syncAgentSuppressor(state, agent);
       } catch {
       }
     }),
@@ -2194,10 +2163,8 @@ function mount(ctx, config, cleanups) {
     ctx.on('agent/disposed', ({ agent }) => {
       const sessionId = sessionIdOf(agent);
       releaseAgentSection(state, sessionId);
-      releaseAgentSuppressor(sessionId);
       if (typeof sessionId === 'string' && sessionId !== '') {
         state.assemblyBySession.delete(sessionId);
-        runtime.agents.delete(sessionId);
         state.personaDropped.delete(sessionId);
       }
     }),
@@ -2262,10 +2229,6 @@ function mount(ctx, config, cleanups) {
     }
     return kept;
   };
-  const stripInjectedSource = (source) => {
-    const kind = source?.kind;
-    return typeof kind === 'string' && STRIPPED_SOURCE_KINDS.includes(kind);
-  };
   const lockedHistoryText = (current, sessionId) => {
     try {
       refresh(current);
@@ -2294,17 +2257,10 @@ function mount(ctx, config, cleanups) {
           }
         } catch {
         }
-        if (switchValueOf(state.doc, sessionId, 'stripInjected') === true) {
-          try {
-            messages = stripByKind(messages, sessionId, stripInjectedSource);
-          } catch {
-          }
-        }
-        if (switchValueOf(state.doc, sessionId, 'stripRuntime') === true) {
-          try {
-            messages = stripByKind(messages, sessionId, isRuntimeBlockSource);
-          } catch {
-          }
+        try {
+          const predicate = stripPredicateFor(sessionId);
+          if (predicate !== null) messages = stripByKind(messages, sessionId, predicate);
+        } catch {
         }
         try {
           const isSubagentChild = agent?.session?.header?.origin === 'subagent';
@@ -2331,6 +2287,62 @@ function mount(ctx, config, cleanups) {
       { prepend: true },
     ),
   );
+  /**
+   * 请求级过滤。dsh 0.2.2 的请求消息来自会话表面（session.deriveMessages），
+   * pre-step 只能挡住「还没落盘」的注入；已经进历史的那批必须在适配器之前改请求。
+   * `llm/stream` 的瀑布终止闭包捕获了原 options，它又是 deepFreeze 的，所以只能
+   * 拿克隆体直接调 adapterStream（本监听注册在最后，是最内层，不会跳过别的监听）。
+   */
+  effect(`${PLUGIN_NAME}: llm/stream 请求级过滤`, () =>
+    ctx.on('llm/stream', function (options, next) {
+      try {
+        const sessionId = typeof options?.sessionId === 'string' ? options.sessionId : null;
+        if (sessionId === null) return next();
+        beginStat(state, options?.signal);
+        refresh(state);
+        const predicate = stripPredicateFor(sessionId);
+        const stripTools = switchValueOf(state.doc, sessionId, 'stripTools') === true;
+        if (predicate === null && !stripTools) return next();
+        const messages = Array.isArray(options.messages) ? options.messages : [];
+        let kept = messages;
+        if (predicate !== null) {
+          const droppedKinds = [];
+          const filtered = [];
+          for (const message of messages) {
+            const source = message?.source;
+            if (predicate(source)) {
+              if (typeof source?.kind === 'string') droppedKinds.push(source.kind);
+              continue;
+            }
+            filtered.push(message);
+          }
+          if (droppedKinds.length > 0) {
+            for (const kind of droppedKinds) countStripped(state, sessionId, kind);
+            state.strippedMessages += droppedKinds.length;
+            boundedRemember(
+              state.strippedMessagesBySession,
+              sessionId,
+              (state.strippedMessagesBySession.get(sessionId) ?? 0) + droppedKinds.length,
+            );
+            kept = filtered;
+          }
+        }
+        if (kept === messages && !stripTools) return next();
+        const rewritten = { ...options, messages: kept };
+        if (stripTools) {
+          delete rewritten.tools;
+          delete rewritten.toolHistory;
+        }
+        const runtime = this;
+        if (runtime !== null && typeof runtime === 'object' && typeof runtime.adapterStream === 'function') {
+          return runtime.adapterStream(rewritten);
+        }
+        return next();
+      } catch {
+        return next();
+      }
+    }),
+  );
   effect(`${PLUGIN_NAME}: api-session/removed 核查会话记录`, () =>
     ctx.on('api-session/removed', (sessionId) => {
       try {
@@ -2344,17 +2356,12 @@ function mount(ctx, config, cleanups) {
     }),
   );
   cleanups.push(() => {
-    runtime.agents.clear();
-  });
-  cleanups.push(() => {
     flushDeferredRecords(state);
   });
   cleanups.push(() => {
     for (const sessionId of [...state.agentSections.keys()]) releaseAgentSection(state, sessionId);
     state.handoffs.clear();
     state.agentSections.clear();
-    for (const sessionId of [...runtime.agentSuppressors.keys()]) releaseAgentSuppressor(sessionId);
-    runtime.agentSuppressors.clear();
   });
   const globalHistory = activeHistoryStatsOf(state.doc, null);
   logToHost(

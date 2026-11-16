@@ -59,7 +59,21 @@
 
 四个开关全开、且没有选中人设，就是**纯聊天**：系统侧注入归零，模型只看到你发的内容。对话界面的选择框里有「一键纯聊天 / 恢复系统输入」按钮直接切换这两个状态。
 
-**工具保活通道**（「可复用工具」）：屏蔽 schema 工具的保险丝。DSH 的工具账本要求每个对话有一份非空的工具声明基线，基线一旦被清空，回来的工具都会被打上 deferred 标记并被服务方以 `INVALID_REQUEST` 拒绝。勾上它，插件只在**两个时刻**保留完整工具列表各一轮——这个对话的**第一次请求**，以及**疑似声明序列重启**（例如压缩）时——先让基线建立起来，之后无论怎么开关屏蔽，工具都还能回来。
+### 0.5.0 起：这三个开关怎么落地
+
+dsh `0.2.2-rc.1` 改掉了下面三处宿主内部结构，旧做法因此全部失效，`0.5.0` 换成新的落点：
+
+| 开关 | 旧做法（已失效） | 现在的做法 |
+| --- | --- | --- |
+| 屏蔽 runtime 上下文 | 通过 `agent.ctx.systemPrompt.suppressRuntimeContext()`——那张 scoped 上下文没有声明 `inject`，访问服务直接抛错并被 `try/catch` 吞掉，抑制器从未挂上 | 装配期在 `system-prompt/assemble` 里摘掉非必需的 `contexts`；历史里已经落盘的快照再由请求级过滤兜底 |
+| 屏蔽 schema 工具 | 在装配瀑布里返回 `tools: []`——`assemble()` 会用自己算出的 `tools` 覆盖返回值（`{ ...transformed, tools }`），改不动 | 在 `llm/stream` 里克隆请求、去掉 `tools` / `toolHistory`，再交给适配器 |
+| 屏蔽其他注入内容 | 只在 `agent/pre-step` 过滤——请求消息由会话表面派生，**已经进历史的那批永远拦不掉** | `agent/pre-step` 继续挡新注入（不写进历史），`llm/stream` 再对历史做一次请求级过滤 |
+
+三个开关的判定都按消息来源 `kind` 走：`agent-instructions`、`time-context`、`runtime-context`、`skill-catalog`。
+
+**工具保活通道**（「可复用工具」）：`0.5.0` 起屏蔽发生在请求发出前，`request/header` 里的工具声明基线始终是完整的，账本不会被清空，所以这个保险丝在 0.2.2 上已经不需要了；保留开关只为兼容旧会话，勾不勾都不影响工具能否回来。
+
+**请求级过滤的一处代价**：`llm/stream` 的瀑布终止闭包捕获的是原请求，且请求是 deepFreeze 的，所以插件只能拿克隆体直接调用适配器入口。它注册在所有内置监听之后（最内层），正常不会跳过别的监听；但如果以后再装一个同样在 `persona-select` 之后注册 `llm/stream` 的插件，那个监听会被跳过。
 
 <sub>以下为关闭所有系统测注入后，你能够真实达到的token消耗</sub>
 <img width="312" height="251" alt="中文tok" src="https://github.com/user-attachments/assets/36a428e5-1171-471b-8e7c-aefcc072053e" />
@@ -154,6 +168,8 @@ The two are stored together as one **persona**: write the text and the history i
 - Unsaved edits trigger a confirmation before switching personas, so nothing is silently dropped.
 
 ### Suppression and pure chat
+
+> Since `0.5.0`: dsh `0.2.2-rc.1` changed the host internals these three switches relied on, so they are rewired — runtime contexts are dropped during assembly (non-required entries) and again at the request boundary; tool schemas are removed from a cloned request in `llm/stream`; history injections are still blocked in `agent/pre-step` and additionally filtered at the request boundary, which is the only place that can cover messages already committed to the session surface. The request rewrite clones the request and calls the adapter entry directly (the waterfall terminal and the frozen request leave no other seam); it is registered innermost, so built-in listeners still run, but a future plugin registering `llm/stream` after this one would be skipped.
 
 Four switches, each removing one class of system-side input the model would otherwise see:
 
