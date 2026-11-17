@@ -42,7 +42,7 @@
 
 - 新建、编辑、保存、删除人设，**复制为新人设**（内置人设只读，要改就复制一份副本再改）。
 - 每一条人设包含：名称、人设正文、段序权重、历史对话。
-- **设置分开保存**：每个对话保存自己的选择与开关，**切换人设、改动勾选项都不会影响新对话和进行中的对话**。设置页有「当前 / 全局」两个页签，分别对应"这一个对话"和"新对话默认跟随的设置"。
+- **设置分开保存**：每个对话保存自己的选择与开关，**切换人设、改动勾选项都不会影响新对话和进行中的对话**。设置页有「当前」「全局」两个页签，分别对应"这一个对话"和"新对话默认跟随的设置"。
 - 保存前会先校验：正文为空、名称为空、权重不是整数都会拒绝保存并说明原因；正文超过建议上限会提示但完整保留。
 - 未保存的改动在切换人设时会先询问，避免默默丢掉。
 
@@ -52,28 +52,12 @@
 
 | 开关 | 撤掉什么 |
 | --- | --- |
-| **只留人设** | 系统提示词里除人设段以外的所有段：harness 身份、部署人设、工具指引、计划模式策略、harness 源码说明。人设为空时，系统提示词就是空的。 |
+| **仅加载人设（屏蔽其余全部系统提示词段）** | 系统提示词里除人设段以外的所有段：harness 身份、部署人设、工具指引、计划模式策略、harness 源码说明。人设为空时，系统提示词就是空的。 |
 | **屏蔽 runtime 上下文** | 两类：① 沙箱策略、审批策略、委派规则等以 user 角色快照下发的动态上下文；② 包在 `<system-reminder>` 里的 runtime 快照与 skill 目录。 |
-| **屏蔽 schema 工具** | 工具定义（它走独立的协议字段，不是系统提示词段，通常是最大的一笔 token）。打开后模型没有可调用的工具。 |
-| **屏蔽其他注入内容** | AGENTS.md / CLAUDE.md 之类的指令基线与逐步时间读数——它们同样是以 user 角色消息追加进来的，只能按来源过滤。 |
+| **屏蔽工具 schema** | 工具定义（它走独立的协议字段，不是系统提示词段，通常是最大的一笔 token）。打开后模型没有可调用的工具。 |
+| **屏蔽历史注入（工作区指令链 / 时间读数）** | AGENTS.md / CLAUDE.md 之类的指令基线与逐步时间读数——它们同样是以 user 角色消息追加进来的，只能按来源过滤。 |
 
-四个开关全开、且没有选中人设，就是**纯聊天**：系统侧注入归零，模型只看到你发的内容。对话界面的选择框里有「一键纯聊天 / 恢复系统输入」按钮直接切换这两个状态。
-
-### 0.5.0 起：这三个开关怎么落地
-
-dsh `0.2.2-rc.1` 改掉了下面三处宿主内部结构，旧做法因此全部失效，`0.5.0` 换成新的落点：
-
-| 开关 | 旧做法（已失效） | 现在的做法 |
-| --- | --- | --- |
-| 屏蔽 runtime 上下文 | 通过 `agent.ctx.systemPrompt.suppressRuntimeContext()`——那张 scoped 上下文没有声明 `inject`，访问服务直接抛错并被 `try/catch` 吞掉，抑制器从未挂上 | 装配期在 `system-prompt/assemble` 里摘掉非必需的 `contexts`；历史里已经落盘的快照再由请求级过滤兜底 |
-| 屏蔽 schema 工具 | 在装配瀑布里返回 `tools: []`——`assemble()` 会用自己算出的 `tools` 覆盖返回值（`{ ...transformed, tools }`），改不动 | 在 `llm/stream` 里克隆请求、去掉 `tools` / `toolHistory`，再交给适配器 |
-| 屏蔽其他注入内容 | 只在 `agent/pre-step` 过滤——请求消息由会话表面派生，**已经进历史的那批永远拦不掉** | `agent/pre-step` 继续挡新注入（不写进历史），`llm/stream` 再对历史做一次请求级过滤 |
-
-三个开关的判定都按消息来源 `kind` 走：`agent-instructions`、`time-context`、`runtime-context`、`skill-catalog`。
-
-**工具保活通道**（「可复用工具」）：`0.5.0` 起屏蔽发生在请求发出前，`request/header` 里的工具声明基线始终是完整的，账本不会被清空，所以这个保险丝在 0.2.2 上已经不需要了；保留开关只为兼容旧会话，勾不勾都不影响工具能否回来。
-
-**请求级过滤的一处代价**：`llm/stream` 的瀑布终止闭包捕获的是原请求，且请求是 deepFreeze 的，所以插件只能拿克隆体直接调用适配器入口。它注册在所有内置监听之后（最内层），正常不会跳过别的监听；但如果以后再装一个同样在 `persona-select` 之后注册 `llm/stream` 的插件，那个监听会被跳过。
+四个开关全开、且没有选中人设，就是**纯聊天**：系统侧注入归零，模型只看到你发的内容。对话界面的选择框里有「一键为纯聊天 / 系统输入还原」按钮直接切换这两个状态。
 
 <sub>以下为关闭所有系统测注入后，你能够真实达到的token消耗</sub>
 <img width="312" height="251" alt="中文tok" src="https://github.com/user-attachments/assets/36a428e5-1171-471b-8e7c-aefcc072053e" />
@@ -83,13 +67,13 @@ dsh `0.2.2-rc.1` 改掉了下面三处宿主内部结构，旧做法因此全部
 **导出**（设置页编辑器里那条人设的正文 + 段序权重 + 历史对话一起走）：
 
 - **导出 JSON**：纯 JSON，不压缩、不丢信息。
-- **导出图片**：由**你自己挑一张 PNG 当封面**，同样的数据打进图片里一起作为一张角色卡下载。图片本身的数据一个字节都不改，包括AI生图或捏人游戏角色卡(导出为png格式的游戏，例如恋活)，任何看图软件照常显示它。
+- **选择PNG图片注入并另存**：由**你自己挑一张 PNG 当封面**，同样的数据打进图片里一起作为一张角色卡下载。图片本身的数据一个字节都不改，包括AI生图或捏人游戏角色卡(导出为png格式的游戏，例如恋活)，任何看图软件照常显示它。
 - 单次导出上限 32 MB；选了非 PNG、或 PNG 结构不完整（读不出 IHDR）会被直接拒绝并说明原因。
 - 导出取的是编辑器里那条人设**已保存**的版本：有未保存改动会先询问，新建但还没保存的人设不能导出。
 
 **导入**：
 
-- 读本插件导出的 `.json`，或「导出图片」生成的那张 `.png`，作为**新人设追加**进列表——**绝不覆盖已有条目**。
+- 读本插件导出的 `.json`，或「选择PNG图片注入并另存」生成的那张 `.png`，作为**新人设追加**进列表——**绝不覆盖已有条目**。
 - **直接导入 DSH 自己 `/export` 出来的 Session 日志**：接受 `/export` 产生的 `.zip`，也接受裸的 `session.vN.jsonl` / `session.jsonl`，以及 `.jsonl.zstd` / `.zst`。导入时两个独立开关：
   - **导入思考过程**：决定模型侧的 `<thinking>` 跟不跟着进来。
   - **展开压缩**：默认只取压缩摘要 `<compacted-summary>` 与**最后一次摘要之后**的对话；勾上后反过来——取**除摘要之外**的全部内容，把压缩展开回原文。历史从未压缩过时，这个勾选项不改变任何东西。
@@ -99,11 +83,11 @@ dsh `0.2.2-rc.1` 改掉了下面三处宿主内部结构，旧做法因此全部
 对话模式选择行下方那个「人设」展开：
 
 - 切换当前对话的人设，或选「不注入」。
-- **一键纯聊天 / 恢复系统输入**。
-- 层徽标告诉你这条设置是**本对话**的还是**全局**的。
+- **一键为纯聊天 / 系统输入还原**。
+- 层徽标告诉你这条设置是**本会话**的还是**全局**的。
 - 状态点：
   - 绿点：工具基线可用，一切正常。
-  - 黄点：本对话选定人设的历史对话与当初注入的那份对不上了；本对话的人设正文没进系统提示词（例如对话用了声明 `complete: true` 的「极简模式」）；本对话已经聊过，所以这条人设的历史对话不再注入；或「可复用工具」没勾。
+  - 黄点：本对话选定人设的历史对话与当初注入的那份对不上了；本对话的人设正文没进系统提示词（例如对话用了声明 `complete: true` 的「极简模式」）；本对话已经聊过，所以这条人设的历史对话不再注入。
   - 红点：本对话选的人设已被删除（人设段现在是空的），或这个对话的首次请求没带任何工具（工具基线为空，本对话内工具回不来）。
 - 设置页的「当前」页会按来源列出**这个对话里被过滤掉**的注入块：runtime 快照、skill 目录、工作区指令、时间读数。
 
@@ -161,7 +145,7 @@ The two are stored together as one **persona**: write the text and the history i
 
 ### Managing personas
 
-- Create, edit, save and delete personas, and **fork as new** (built-in personas are read-only; fork a copy to edit one).
+- Create, edit, save and delete personas, and **Fork as new** (built-in personas are read-only; fork a copy to edit one).
 - Each persona carries: name, persona text, section order weight, conversation history.
 - **Settings are saved per conversation**: each conversation keeps its own selection and switches, so **switching personas or toggling a switch never affects new conversations or conversations in progress**. The settings page has a Current / Global tab pair — "this conversation" versus "what new conversations follow".
 - Saving validates first: empty text, empty name or a non-integer weight is refused with a reason; text over the recommended limit is reported but kept in full.
@@ -169,20 +153,16 @@ The two are stored together as one **persona**: write the text and the history i
 
 ### Suppression and pure chat
 
-> Since `0.5.0`: dsh `0.2.2-rc.1` changed the host internals these three switches relied on, so they are rewired — runtime contexts are dropped during assembly (non-required entries) and again at the request boundary; tool schemas are removed from a cloned request in `llm/stream`; history injections are still blocked in `agent/pre-step` and additionally filtered at the request boundary, which is the only place that can cover messages already committed to the session surface. The request rewrite clones the request and calls the adapter entry directly (the waterfall terminal and the frozen request leave no other seam); it is registered innermost, so built-in listeners still run, but a future plugin registering `llm/stream` after this one would be skipped.
-
 Four switches, each removing one class of system-side input the model would otherwise see:
 
 | Switch | What it removes |
 | --- | --- |
-| **Persona only** | Every system-prompt section except the persona: harness identity, deployment persona, tool guidance, plan-mode policy, harness-source notes. With no persona selected the system prompt is empty. |
+| **Persona only (suppress every other system-prompt section)** | Every system-prompt section except the persona: harness identity, deployment persona, tool guidance, plan-mode policy, harness-source notes. With no persona selected the system prompt is empty. |
 | **Suppress runtime context** | Two families: (1) sandbox policy, approval policy and delegation rules delivered as user-role snapshots; (2) the runtime snapshot and skill catalog framed as `<system-reminder>` blocks. |
 | **Suppress tool schemas** | Tool definitions (a separate wire field, not a prompt section, and usually the biggest token item). With this on the model has nothing to call. |
-| **Suppress other injections** | The AGENTS.md / CLAUDE.md instruction baseline and per-step time readings — also user-role messages, so they can only be filtered by provenance. |
+| **Suppress history injections (workspace instructions / time readings)** | The AGENTS.md / CLAUDE.md instruction baseline and per-step time readings — also user-role messages, so they can only be filtered by provenance. |
 
 All four on with no persona selected is **pure chat**: zero system-side injection, the model sees only what you send. The picker in the conversation view has one-click **Make it pure chat / Restore system input** buttons.
-
-**Tool-keeping channel** ("Reusable tools"): the safety valve for "Suppress tool schemas". DSH's tool ledger requires a non-empty tool-declaration baseline for the session; once that baseline is emptied, tools that come back are all marked deferred and the provider rejects the request with `INVALID_REQUEST`. When checked, the plugin keeps the full tool list for exactly one turn at two moments — the session's **first request**, and a suspected **declaration-series restart** (a compaction, for example) — so a non-empty baseline gets written. Afterwards tools can always come back no matter how you toggle suppression.
 
 <sub>This is what token consumption really looks like after every system-side injection is disabled!</sub>
 <img width="324" height="252" alt="英文tok" src="https://github.com/user-attachments/assets/21ddc29c-a9a9-40da-a38c-c16fd73cef0b" />
@@ -192,13 +172,13 @@ All four on with no persona selected is **pure chat**: zero system-side injectio
 **Export** (the editor's persona text + section order + history together):
 
 - **Export JSON**: plain, uncompressed, lossless.
-- **Export image**: **pick a PNG yourself as the cover** and the same data is packed into the image and downloaded with it. The image is not modified by a single byte and every normal viewer still displays it.
+- **Pick a PNG, inject into it, and save as a copy**: **pick a PNG yourself as the cover** and the same data is packed into the image and downloaded with it. The image is not modified by a single byte and every normal viewer still displays it.
 - 32 MB per export. A non-PNG cover, or a structurally incomplete PNG (no readable IHDR), is refused outright with the reason.
 - Export takes the persona's **saved** version: unsaved edits trigger a confirmation first, and a new persona that has never been saved cannot be exported.
 
 **Import**:
 
-- Read a `.json` this plugin exported, or the `.png` from "Export image", and append it as **new** personas — existing entries are never overwritten.
+- Read a `.json` this plugin exported, or the `.png` from "Pick a PNG, inject into it, and save as a copy", and append it as **new** personas — existing entries are never overwritten.
 - **Import a DSH `/export` session log directly**: accepts the `.zip` produced by `/export`, or a bare `session.vN.jsonl` / `session.jsonl`, or a `.jsonl.zstd` / `.zst`. Two independent options:
   - **Include thinking**: whether the model side's `<thinking>` comes along.
   - **Expand compaction**: by default the box gets the `<compacted-summary>` blocks plus the dialogue after the **last** one; ticked it flips — everything **except** those summaries, with the compaction expanded back into the original text. With no summary in the imported text, ticking changes nothing.
@@ -208,11 +188,11 @@ All four on with no persona selected is **pure chat**: zero system-side injectio
 The "Persona" dropdown under the mode selector:
 
 - Switch this conversation's persona, or choose Off.
-- One-click **pure chat / restore system input**.
+- One-click **Make it pure chat / Restore system input**.
 - A scope badge tells you whether the setting is for **this chat** or **global**.
 - Status dots:
   - Green: the tool baseline is usable, all good.
-  - Yellow: this session's persona history no longer matches what was injected; the persona text never made it into the system prompt (e.g. the conversation uses a "minimal" preset declaring `complete: true`); the conversation has already been chatting, so its history will not be injected; or "Reusable tools" is unchecked.
+  - Yellow: this session's persona history no longer matches what was injected; the persona text never made it into the system prompt (e.g. the conversation uses a "minimal" preset declaring `complete: true`); the conversation has already been chatting, so its history will not be injected.
   - Red: the persona selected for this session has been deleted (the persona section is empty), or this session's first request carried no tools at all (empty tool baseline — tools cannot return within this session).
 - The settings page's Current tab lists the injection blocks **filtered out in this conversation**, by kind: runtime snapshot, skill catalog, workspace instructions, time readings.
 
