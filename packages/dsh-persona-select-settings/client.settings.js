@@ -269,17 +269,14 @@ window.__ModuleLoader__.load({
             activeId: data?.activeId ?? null,
             found: data?.activeFound !== false,
             switches: data?.switches ?? {},
-            toolReusable: data?.toolReusable !== false,
           }
         : {
             activeId: data?.global?.activeId ?? null,
             found: data?.global?.found !== false,
             switches: data?.global?.switches ?? {},
-            toolReusable: data?.global?.toolReusable !== false,
           };
       const switches = layer.switches;
       const everySwitchOn = allSwitchesOn(switches);
-      const toolReusable = layer.toolReusable;
       const pureChat = everySwitchOn && layer.activeId === null;
       const writeSession = activeTab === 'current' && currentSessionId !== '' ? currentSessionId : '';
       const withSession = (payload) => (writeSession === '' ? payload : { ...payload, session: writeSession });
@@ -599,15 +596,6 @@ window.__ModuleLoader__.load({
           setNotice(t('switchesSaved'));
           if (!notifyPersonaChanged()) await reload();
         });
-      const onToggleToolReusable = (on) =>
-        run(async () => {
-          await call('/switches', {
-            method: 'PUT',
-            body: JSON.stringify(withSession({ toolReusable: on })),
-          });
-          setNotice(t('switchesSaved'));
-          if (!notifyPersonaChanged()) await reload();
-        });
       const onPrimaryAction = () =>
         run(async () => {
           if (everySwitchOn) {
@@ -917,46 +905,6 @@ window.__ModuleLoader__.load({
           'div',
           { style: S.card, 'data-card': 'status' },
           h(AssemblyLine, { data, t, indicators: pageIndicators, scope: activeTab }),
-          h('span', { style: S.divider }),
-          h(
-            'label',
-            {
-              style: { ...S.row, gap: 8, cursor: 'pointer', alignItems: 'flex-start' },
-              'data-tool-reusable': '1',
-            },
-            h('input', {
-              type: 'checkbox',
-              checked: toolReusable,
-              disabled: writeBusy,
-              onChange: (event) => onToggleToolReusable(event.target.checked),
-              style: { marginTop: 3, flex: 'none' },
-            }),
-            h(
-              'span',
-              { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
-              h(
-                'span',
-                { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } },
-                h('span', { style: { fontSize: 13, lineHeight: '20px' } }, t('toolReusableLabel')),
-                h(Hint, { text: t('toolReusableHint'), label: t('hintLabel') }),
-              ),
-            ),
-          ),
-          activeTab === 'current' && switches.stripTools === true && toolReusable && data.section?.toolStripHeld === true
-            ? h(
-                'p',
-                {
-                  style: S.sub,
-                  'data-tool-strip-held': '1',
-                  'data-tool-strip-held-reason': data.section?.toolStripHeldReason ?? 'unknown',
-                },
-                t(
-                  data.section?.toolStripHeldReason === 'series-restart'
-                    ? 'toolStripHeldRestart'
-                    : 'toolStripHeldFirst',
-                ),
-              )
-            : null,
           activeTab === 'current' && (data.section?.sessionBaseline === 'empty' || data.section?.toolBaseline === 'empty')
             ? h('p', { style: S.warn, 'data-tool-baseline': 'empty' }, t('toolBaselineEmpty'))
             : null,

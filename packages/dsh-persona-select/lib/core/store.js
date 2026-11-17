@@ -221,7 +221,6 @@ export function auditHistoryFileOf(doc, id, warnings) {
   auditHistoryFiles({ personas: [hit] }, lastStoreDir, warnings);
 }
 export const SWITCH_KEYS = Object.freeze(['soloOnly', 'stripRuntime', 'stripTools', 'stripInjected']);
-export const TOOL_REUSABLE_KEY = 'toolReusable';
 export function normalizeSessionId(raw) {
   if (typeof raw !== 'string') return null;
   const id = raw.trim();
@@ -238,7 +237,7 @@ function normalizeSessionRecord(raw) {
     updatedAt: Number.isFinite(raw.updatedAt) ? Number(raw.updatedAt) : null,
   };
   for (const key of SWITCH_KEYS) record[key] = raw[key] === true;
-  record[TOOL_REUSABLE_KEY] = raw[TOOL_REUSABLE_KEY] !== false;
+  delete record.toolReusable; // 0.5.2 起移除「工具可复用」选项：旧会话记录里的遗留字段一并丢弃
   if (raw.promptPersonaId !== undefined) {
     record.promptPersonaId =
       typeof raw.promptPersonaId === 'string' && raw.promptPersonaId !== '' ? raw.promptPersonaId : null;
@@ -287,11 +286,7 @@ function effectiveLayerOf(doc, sessionId) {
 export function switchValueOf(doc, sessionId, key) {
   const { record } = effectiveLayerOf(doc, sessionId);
   const raw = record === null ? doc?.[key] : record[key];
-  if (key === TOOL_REUSABLE_KEY) return raw !== false;
   return raw === true;
-}
-export function toolReusableOf(doc, sessionId) {
-  return switchValueOf(doc, sessionId, TOOL_REUSABLE_KEY);
 }
 export function activeIdOf(doc, sessionId) {
   const { record } = effectiveLayerOf(doc, sessionId);
@@ -308,7 +303,6 @@ export function sampledRecordFrom(doc, parentSessionId, now = Date.now()) {
     updatedAt: now,
   };
   for (const key of SWITCH_KEYS) record[key] = source?.[key] === true;
-  record[TOOL_REUSABLE_KEY] = source?.[TOOL_REUSABLE_KEY] !== false;
   return record;
 }
 export function sampledRecord(doc, now = Date.now()) {
@@ -679,7 +673,6 @@ export function emptyStore() {
     stripRuntime: false,
     stripTools: false,
     stripInjected: false,
-    toolReusable: true,
     personas: [],
     sessions: {},
   };
@@ -733,6 +726,7 @@ function normalizeStore(raw, valuesChecked = false) {
     return { doc, warnings };
   }
   Object.assign(doc, raw);
+  delete doc.toolReusable; // 0.5.2 起移除「工具可复用」选项：旧数据文件里的遗留字段一并丢弃
   doc.personas = [];
   doc.sessions = {};
   const list = Array.isArray(raw.personas) ? raw.personas : [];
@@ -772,7 +766,6 @@ function normalizeStore(raw, valuesChecked = false) {
   }
   doc.activeId = typeof raw.activeId === 'string' && raw.activeId !== '' ? raw.activeId : null;
   for (const key of SWITCH_KEYS) doc[key] = raw[key] === true;
-  doc[TOOL_REUSABLE_KEY] = raw[TOOL_REUSABLE_KEY] !== false;
   const sessions = normalizeSessionMap(raw.sessions);
   doc.sessions = sessions.map;
   for (const warning of sessions.warnings) warnings.push(warning);
@@ -792,7 +785,6 @@ const WRITTEN_TOP_LEVEL_KEYS = new Set([
   'version',
   'activeId',
   ...[...SWITCH_KEYS],
-  TOOL_REUSABLE_KEY,
   'personas',
   'sessions',
   DEPRECATED_TOP_LEVEL_SECTION_ORDER,
@@ -807,7 +799,6 @@ function personaForDisk(entry) {
 function sessionRecordForDisk(record) {
   const out = { ...record };
   for (const key of SWITCH_KEYS) out[key] = record[key] === true;
-  out[TOOL_REUSABLE_KEY] = record[TOOL_REUSABLE_KEY] !== false;
   if (record.promptPersonaId === undefined) delete out.promptPersonaId;
   if (record.sampledAt === null) delete out.sampledAt;
   if (record.updatedAt === null) delete out.updatedAt;
@@ -816,7 +807,6 @@ function sessionRecordForDisk(record) {
 function documentForDisk(doc) {
   const out = { version: STORE_VERSION, activeId: doc.activeId };
   for (const key of SWITCH_KEYS) out[key] = doc[key] === true;
-  out[TOOL_REUSABLE_KEY] = doc[TOOL_REUSABLE_KEY] !== false;
   out.personas = doc.personas.map(personaForDisk);
   const sessionIds = Object.keys(doc.sessions);
   if (sessionIds.length > 0) {

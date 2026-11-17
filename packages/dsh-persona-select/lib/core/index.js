@@ -8,7 +8,6 @@ import {
   MAX_TEXT_LENGTH,
   PERSONA_HISTORY_SOURCE_KIND,
   SWITCH_KEYS,
-  TOOL_REUSABLE_KEY,
   acceptSectionOrder,
   activeFoundOf,
   activeHistoryOf,
@@ -39,13 +38,12 @@ import {
   storePath,
   switchValueOf,
   textLimitWarnings,
-  toolReusableOf,
   withSessionRecord,
   withoutSessionRecords,
   writeStoreFile,
 } from './store.js';
 const PLUGIN_NAME = 'dsh-persona-select';
-const PLUGIN_VERSION = '0.5.1';
+const PLUGIN_VERSION = '0.5.2';
 const ROUTE_PREFIX = '/persona-select';
 const SECTION_NAME = 'plugin:persona-select';
 const HISTORY_PROJECTION_KEY = 'personaSelectHistory';
@@ -695,7 +693,6 @@ function toolBaselineState(agent) {
     return 'unknown';
   }
 }
-const lastSurfaceGeneration = new WeakMap();
 const personaInRequest = new WeakMap();
 const personaRendered = new WeakMap();
 function noteRenderedPersona(state, agent, sessionId) {
@@ -704,18 +701,6 @@ function noteRenderedPersona(state, agent, sessionId) {
     if (typeof sessionId !== 'string' || sessionId === '') return;
     personaRendered.set(agent, activeIdOf(state.doc, sessionId));
   } catch {
-  }
-}
-function seriesRestartRisk(agent) {
-  try {
-    if (agent === null || typeof agent !== 'object') return false;
-    const generation = agent?.session?.surface?.contentGeneration;
-    if (typeof generation !== 'number') return false;
-    const previous = lastSurfaceGeneration.get(agent);
-    lastSurfaceGeneration.set(agent, generation);
-    return previous !== undefined && previous !== generation;
-  } catch {
-    return false;
   }
 }
 function rememberPromptPersona(state, sessionId, id) {
@@ -973,7 +958,6 @@ function findingsOf(state, sessionBaseline, sessionId, historyMismatch, personaD
   if (!activeFoundOf(state.doc, sessionId)) red.push('persona-missing');
   if (minimalMode === true) yellow.push('minimal-mode');
   else if (personaDropped === true) yellow.push('persona-not-injected');
-  if (toolReusableOf(state.doc, sessionId) === false) yellow.push('tool-reusable-off');
   if (historyMismatch === true) yellow.push('history-mismatch');
   if (historyNotCarried === true) yellow.push('history-not-carried');
   return [
@@ -1120,8 +1104,6 @@ const NO_ASSEMBLY_READINGS = Object.freeze({
   before: null,
   after: null,
   toolBaseline: null,
-  toolStripHeld: false,
-  toolStripHeldReason: null,
 });
 function assemblyForSession(state, wantSession) {
   if (typeof wantSession !== 'string' || wantSession === '') {
@@ -1132,8 +1114,6 @@ function assemblyForSession(state, wantSession) {
       before: state.assembly.before,
       after: state.assembly.after,
       toolBaseline: state.assembly.toolBaseline,
-      toolStripHeld: state.assembly.toolStripHeld,
-      toolStripHeldReason: state.assembly.toolStripHeldReason,
     };
   }
   return state.assemblyBySession.get(wantSession) ?? NO_ASSEMBLY_READINGS;
@@ -1210,7 +1190,6 @@ function viewOf(state, ctx, sessionId) {
       activeId: activeIdOf(state.doc, null),
       found: activeFoundOf(state.doc, null),
       switches: Object.fromEntries(SWITCH_KEYS.map((key) => [key, switchValueOf(state.doc, null, key)])),
-      [TOOL_REUSABLE_KEY]: toolReusableOf(state.doc, null),
     },
     section: {
       name: SECTION_NAME,
@@ -1231,12 +1210,9 @@ function viewOf(state, ctx, sessionId) {
       indicator: indicatorOf(findings),
       indicators: findings,
       minimalMode,
-      toolStripHeld: own.toolStripHeld,
-      toolStripHeldReason: own.toolStripHeldReason,
       historyInjections: state.historyInjections,
     },
     switches: Object.fromEntries(SWITCH_KEYS.map((key) => [key, switchValueOf(state.doc, wantSession, key)])),
-    [TOOL_REUSABLE_KEY]: toolReusableOf(state.doc, wantSession),
     strippedMessages: strippedMessagesOf(state, wantSession),
     strippedMessagesTotal: state.strippedMessages,
     stripStats: stripStatsOf(state, wantSession),
@@ -1466,8 +1442,6 @@ function mount(ctx, config, cleanups) {
       after: null,
       toolBaseline: null,
       sessionId: null,
-      toolStripHeld: false,
-      toolStripHeldReason: null,
     },
     assemblyBySession: new Map(),
     deferredRecords: new Map(),
@@ -1901,7 +1875,7 @@ function mount(ctx, config, cleanups) {
           }
           if (url.pathname === `${ROUTE_PREFIX}/switches`) {
             const body = await readJsonBody(req);
-            const badTypes = [...SWITCH_KEYS, TOOL_REUSABLE_KEY, 'pureChat']
+            const badTypes = [...SWITCH_KEYS, 'pureChat']
               .filter((key) => Object.hasOwn(body, key) && typeof body[key] !== 'boolean');
             if (badTypes.length > 0) {
               sendJson(res, 400, {
@@ -1913,7 +1887,6 @@ function mount(ctx, config, cleanups) {
             }
             const touched = [];
             for (const key of SWITCH_KEYS) if (Object.hasOwn(body, key)) touched.push(key);
-            if (Object.hasOwn(body, TOOL_REUSABLE_KEY)) touched.push(TOOL_REUSABLE_KEY);
             if (Object.hasOwn(body, 'pureChat') && body.pureChat !== true) {
               sendJson(res, 400, {
                 ok: false,
@@ -1927,7 +1900,7 @@ function mount(ctx, config, cleanups) {
               sendJson(res, 400, {
                 ok: false,
                 code: 'empty-request',
-                message: `请求里没有任何可改开关（${SWITCH_KEYS.join(' / ')} / ${TOOL_REUSABLE_KEY} / pureChat）`,
+                message: `请求里没有任何可改开关（${SWITCH_KEYS.join(' / ')} / pureChat）`,
               });
               return;
             }
@@ -1936,9 +1909,6 @@ function mount(ctx, config, cleanups) {
             await writeLayer(state, layer, now, (target) => {
               for (const key of SWITCH_KEYS) {
                 if (Object.hasOwn(body, key)) target[key] = body[key] === true;
-              }
-              if (Object.hasOwn(body, TOOL_REUSABLE_KEY)) {
-                target[TOOL_REUSABLE_KEY] = body[TOOL_REUSABLE_KEY] !== false;
               }
               if (body.pureChat === true) {
                 target.activeId = null;
@@ -2084,19 +2054,7 @@ function mount(ctx, config, cleanups) {
           rememberAssembly(state, sessionId, { toolBaseline: baselineState });
           rememberBaseline(state, sessionId, baselineState);
           if (switchValueOf(state.doc, sessionId, 'stripTools') === true) {
-            const reusable = toolReusableOf(state.doc, sessionId);
-            const restart = reusable ? seriesRestartRisk(agentForSession) : false;
-            if (reusable && (baselineState === 'none' || restart)) {
-              rememberAssembly(state, sessionId, {
-                toolStripHeld: true,
-                toolStripHeldReason: baselineState === 'none' ? 'first-request' : 'series-restart',
-              });
-            } else {
-              rememberAssembly(state, sessionId, { toolStripHeld: false, toolStripHeldReason: null });
-              rewritten = { ...rewritten, tools: [] };
-            }
-          } else {
-            rememberAssembly(state, sessionId, { toolStripHeld: false, toolStripHeldReason: null });
+            rewritten = { ...rewritten, tools: [] };
           }
           if (switchValueOf(state.doc, sessionId, 'soloOnly') === true) {
             const mine = sections.find((section) => section?.name === SECTION_NAME);
@@ -2370,7 +2328,7 @@ function mount(ctx, config, cleanups) {
       activeIdOf(state.doc, null) ?? '（未选择）'
     }；段序 ${state.section.order}（${sectionOrderMode(state.doc, null) === 'follow' ? '追随' : '数值'}）；全局开关 ${
       SWITCH_KEYS.filter((key) => switchValueOf(state.doc, null, key) === true).join(',') || '（全关）'
-    }；全局工具可复用 ${toolReusableOf(state.doc, null) ? '开' : '关'}；会话记录 ${
+    }；会话记录 ${
       Object.keys(state.doc.sessions ?? {}).length
     } 条；全局人设存下的历史对话 ${
       globalHistory.found && globalHistory.bytes > 0 ? `${globalHistory.bytes} 字节` : '（无）'
