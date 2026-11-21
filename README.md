@@ -59,6 +59,8 @@
 
 四个开关全开、且没有选中人设，就是**纯聊天**：系统侧注入归零，模型只看到你发的内容。对话界面的选择框里有「一键为纯聊天 / 系统输入还原」按钮直接切换这两个状态。
 
+**已知限制（缓存命中）**：改动“屏蔽 runtime 上下文”“屏蔽工具 schema”“屏蔽历史注入（工作区指令链 / 时间读数）”这三个选项从开切到关时，会话下一轮对话的缓存命中才不会重置，其它所有行为都会导致整份会话的下一次输入变成“未缓存输入”，这是在会话内热切换的必要代价。但只重新输入一次，后续不更改选项时仍延续缓存命中。
+
 <sub>以下为关闭所有系统测注入后，你能够真实达到的token消耗</sub>
 <img width="312" height="251" alt="中文tok" src="https://github.com/user-attachments/assets/36a428e5-1171-471b-8e7c-aefcc072053e" />
 
@@ -163,6 +165,8 @@ Four switches, each removing one class of system-side input the model would othe
 | **Suppress history injections (workspace instructions / time readings)** | The AGENTS.md / CLAUDE.md instruction baseline and per-step time readings — also user-role messages, so they can only be filtered by provenance. |
 
 All four on with no persona selected is **pure chat**: zero system-side injection, the model sees only what you send. The picker in the conversation view has one-click **Make it pure chat / Restore system input** buttons.
+
+**Known limitation (cache hits):** only when the three options “Suppress runtime context”, “Suppress tool schemas” and “Suppress history injections (workspace instructions / time readings)” are switched from on to off does the cache hit of the conversation's next turn stay unreset; every other action turns the next input of the whole conversation into “uncached input”. That is the necessary cost of hot-switching inside a conversation. But it re-sends only once — as long as the options stay unchanged, cache hits continue.
 
 <sub>This is what token consumption really looks like after every system-side injection is disabled!</sub>
 <img width="324" height="252" alt="英文tok" src="https://github.com/user-attachments/assets/21ddc29c-a9a9-40da-a38c-c16fd73cef0b" />
