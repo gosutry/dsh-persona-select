@@ -60,7 +60,7 @@ window.__ModuleLoader__.load({
         ),
       );
     }
-    const CLIENT_VERSION = '0.5.3';
+    const CLIENT_VERSION = '0.5.4';
     function PersonaManagerImpl(props) {
       const t = props !== null && props !== undefined && typeof props.t === 'function' ? props.t : fallbackT;
       const [confirmRequest, setConfirmRequest] = React.useState(null);

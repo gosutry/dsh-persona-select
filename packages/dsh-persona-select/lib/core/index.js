@@ -41,7 +41,7 @@ import {
   writeStoreFile,
 } from './store.js';
 const PLUGIN_NAME = 'dsh-persona-select';
-const PLUGIN_VERSION = '0.5.3';
+const PLUGIN_VERSION = '0.5.4';
 const ROUTE_PREFIX = '/persona-select';
 const SECTION_NAME = 'plugin:persona-select';
 const HISTORY_PROJECTION_KEY = 'personaSelectHistory';
@@ -1002,15 +1002,19 @@ function releaseAgentSection(state, sessionId) {
   } catch {
   }
 }
-function findingsOf(state, sessionBaseline, sessionId, historyMismatch, personaDropped, minimalMode, historyNotCarried, cacheReset) {
+function findingsOf(state, sessionBaseline, sessionId, historyMismatch, personaDropped, minimalMode, historyNotCarried, cacheReset, hasRecord) {
   const red = [];
   const yellow = [];
-  if (sessionBaseline === 'empty') red.push('no-tools-first-turn');
+  // 没有记录的会话（新会话）只可能是「人设被删」和「极简模式」两条。
+  // 首句没带工具、历史对不上、历史不再注入、下一句重置缓存，全都要聊过才有，
+  // 新会话里一律不算——不然会话页那颗点会比「全局」多说一套话。
+  const started = hasRecord === true;
+  if (started && sessionBaseline === 'empty') red.push('no-tools-first-turn');
   if (!activeFoundOf(state.doc, sessionId)) red.push('persona-missing');
   if (minimalMode === true || personaDropped === true) yellow.push('persona-dropped');
-  if (historyMismatch === true) yellow.push('history-mismatch');
-  if (historyNotCarried === true) yellow.push('history-not-carried');
-  if (cacheReset === true) yellow.push('cache-reset');
+  if (started && historyMismatch === true) yellow.push('history-mismatch');
+  if (started && historyNotCarried === true) yellow.push('history-not-carried');
+  if (started && cacheReset === true) yellow.push('cache-reset');
   return [
     ...red.map((code) => ({ code, color: 'red' })),
     ...yellow.map((code) => ({ code, color: 'yellow' })),
@@ -1322,9 +1326,10 @@ function viewOf(state, ctx, sessionId) {
     state, ctx, seen.sessionId, personaSwitchedOf(state, seen.sessionId),
   );
   const cacheReset = cacheResetOf(state, wantSession);
+  const hasRecord = wantSession !== null && sessionRecordOf(state.doc, wantSession) !== null;
   const findings = findingsOf(
     state, seen.baseline, wantSession, mismatch, dropped, minimalMode, notCarried,
-    cacheReset !== null && cacheReset.pending === true,
+    cacheReset !== null && cacheReset.pending === true, hasRecord,
   );
   return {
     ok: true,
