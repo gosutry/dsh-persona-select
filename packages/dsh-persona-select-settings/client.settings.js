@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
         React, h, S, fallbackT,
         AssemblyLine, Hint, ScrollBar, layerIndicators,
         EXPORT_FORMAT, EXPORT_VERSION, EXPORT_MAX_BYTES,
-        STRIP_KIND_FIELDS, SWITCH_FIELDS, RESIDENT_RETRY_MS,
+        STRIP_KIND_FIELDS, SWITCH_FIELDS, RESIDENT_RETRY_MS, PRESET_SETTLE_MS,
         allSwitchesOn, byColorRank, call, checkOrderInput, ensureScrollCss,
         historyBytesOf, indicatorFor, indicatorsOf,
         ioExport, logImport, logImportSync,
@@ -60,6 +60,7 @@ window.__ModuleLoader__.load({
         ),
       );
     }
+    const CLIENT_VERSION = '0.5.3';
     function PersonaManagerImpl(props) {
       const t = props !== null && props !== undefined && typeof props.t === 'function' ? props.t : fallbackT;
       const [confirmRequest, setConfirmRequest] = React.useState(null);
@@ -84,6 +85,23 @@ window.__ModuleLoader__.load({
       const currentBlank = mainSession.blank;
       const currentParent = mainSession.parent;
       const { status, data, error, reload } = usePersonaState(currentSessionId);
+      // 预设（模式）变化是插件管不到的事件来源，但会话行里的 agentPreset 会跟着变：
+      // 一变就重拉一次状态，黄点随即更新，不需要任何定时器。
+      const sessionPreset = typeof mainSession.preset === 'string' ? mainSession.preset : '';
+      const presetSeenRef = React.useRef('');
+      React.useEffect(() => {
+        if (sessionPreset === '') return;
+        if (presetSeenRef.current === '') {
+          presetSeenRef.current = sessionPreset;
+          return;
+        }
+        if (presetSeenRef.current === sessionPreset) return;
+        presetSeenRef.current = sessionPreset;
+        // 切模式只计时一次：等服务器把新预设的探测结果落下来，再刷一次。
+        const timer = setTimeout(() => reload(), PRESET_SETTLE_MS);
+        if (typeof timer?.unref === 'function') timer.unref();
+        return () => clearTimeout(timer);
+      }, [sessionPreset, reload]);
       const [tab, setTab] = React.useState('current');
       const tabPickedRef = React.useRef(false);
       const autoPreviewRef = React.useRef(null);
@@ -95,6 +113,7 @@ window.__ModuleLoader__.load({
       const [noPreview, setNoPreview] = React.useState(false);
       const [busy, setBusy] = React.useState(false);
       const [notice, setNotice] = React.useState(null);
+      const [dismissError, setDismissError] = React.useState('');
       const [editorNotice, setEditorNotice] = React.useState(null);
       const [failure, setFailure] = React.useState(null);
       const [saveFeedback, setSaveFeedback] = React.useState(null);
@@ -280,6 +299,18 @@ window.__ModuleLoader__.load({
       const pureChat = everySwitchOn && layer.activeId === null;
       const writeSession = activeTab === 'current' && currentSessionId !== '' ? currentSessionId : '';
       const withSession = (payload) => (writeSession === '' ? payload : { ...payload, session: writeSession });
+      const dismissWarnings = () =>
+        run(async () => {
+          setDismissError('');
+          try {
+            await call('/notices', { method: 'PUT', body: JSON.stringify(withSession({})) });
+            setNotice(t('warningsDismissed'));
+          } catch (problem) {
+            // 服务器还是旧构建时这条路由不存在：把 404 的原因直接写在按钮下面，而不是静默失败。
+            setDismissError(String(problem?.message ?? problem));
+          }
+          await reload();
+        });
       const personaDirty = draft.name !== draftBaseline.name || draft.text !== draftBaseline.text;
       const orderDirty =
         orderDraft.mode !== orderBaseline.mode ||
@@ -787,13 +818,16 @@ window.__ModuleLoader__.load({
       const activeId = layer.activeId;
       previewKeyRef.current = `${activeTab}:${layer.activeId ?? ''}`;
       const sessionIndicators = indicatorsOf(data, t);
-      const modeIndicators = data?.section?.minimalMode === true ? [indicatorFor('minimal-mode', t)] : [];
+      const modeIndicators = data?.section?.minimalMode === true ? [indicatorFor('persona-dropped', t)] : [];
       const pageIndicators = activeTab === 'current'
         ? sessionIndicators
         : [...layerIndicators(layer, t), ...modeIndicators].sort(byColorRank);
       const warnings = (Array.isArray(data?.warnings) ? data.warnings : []).filter(
         (message) => typeof message === 'string' && message.trim() !== '',
       );
+      const dismissable = Number.isFinite(Number(data?.dismissable)) ? Number(data.dismissable) : 0;
+      const serverVersion = typeof data?.version === 'string' && data.version !== '' ? data.version : null;
+      const staleServer = serverVersion !== null && serverVersion !== CLIENT_VERSION ? serverVersion : null;
       const indicator = summarizeIndicators(pageIndicators, t);
       const stripPairs = STRIP_KIND_FIELDS
         .map((row) => ({ ...row, count: Number(data.stripStats?.[row.kind] ?? 0) }))
@@ -822,6 +856,7 @@ window.__ModuleLoader__.load({
           'data-scope': activeTab,
           'data-has-record': hasRecord ? '1' : '0',
           'data-session-id': currentSessionId,
+          'data-session-preset': sessionPreset,
           'data-indicators': pageIndicators.map((entry) => entry.reason).join(','),
           'data-minimal-mode': data?.section?.minimalMode === true ? '1' : '0',
         },
@@ -846,11 +881,38 @@ window.__ModuleLoader__.load({
                 `${t('warningsSummary')}（${warnings.length}）`,
                 h('span', { style: S.warnToggleHint }, showWarnings ? t('warningsHide') : t('warningsShow')),
               ),
+              staleServer !== null
+                ? h(
+                    'p',
+                    { style: S.warn, 'data-stale-server': staleServer },
+                    t('staleServer', { client: CLIENT_VERSION, server: staleServer }),
+                  )
+                : null,
               showWarnings
                 ? h(
-                    'ul',
-                    { style: S.warnList, 'data-warnings-list': '1' },
-                    warnings.map((message, index) => h('li', { key: `${index}`, style: S.warnItem }, String(message))),
+                    'div',
+                    { style: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' } },
+                    h(
+                      'ul',
+                      { style: S.warnList, 'data-warnings-list': '1' },
+                      warnings.map((message, index) => h('li', { key: `${index}`, style: S.warnItem }, String(message))),
+                    ),
+                    dismissable > 0
+                      ? h(
+                          'button',
+                          {
+                            type: 'button',
+                            style: { ...S.ghostButton, fontSize: 12, padding: '2px 8px' },
+                            'data-warnings-dismiss': '1',
+                            disabled: busy,
+                            onClick: dismissWarnings,
+                          },
+                          t('warningsDismiss'),
+                        )
+                      : null,
+                    dismissError !== ''
+                      ? h('p', { style: S.warn, 'data-warnings-error': '1' }, `${t('dismissFailed')}${dismissError}`)
+                      : null,
                   )
                 : null,
             )

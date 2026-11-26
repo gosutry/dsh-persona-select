@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
         React, h, S, fallbackT,
         AssemblyLine, Hint, ScrollBar, layerIndicators,
         EXPORT_FORMAT, EXPORT_VERSION, EXPORT_MAX_BYTES,
-        STRIP_KIND_FIELDS, SWITCH_FIELDS, RESIDENT_RETRY_MS,
+        STRIP_KIND_FIELDS, SWITCH_FIELDS, RESIDENT_RETRY_MS, PRESET_SETTLE_MS,
         allSwitchesOn, byColorRank, call, checkOrderInput, ensureScrollCss,
         historyBytesOf, indicatorFor, indicatorsOf,
         ioExport, logImport, logImportSync,
@@ -160,23 +160,30 @@ window.__ModuleLoader__.load({
         ? props.session.subagent.address.parentSessionId
         : undefined;
       const { layout: panelLayout, panelRef: setPanelNode, panelState } = usePopupGeometry(triggerRef, open);
+      const presetRow = useMainSessionRow(props?.useSessions);
+      const sessionPreset = typeof presetRow.preset === 'string' ? presetRow.preset : '';
+      const presetSeenRef = React.useRef('');
       React.useEffect(() => {
-        const key = `${sessionId}:${running ? '1' : '0'}`;
+        if (sessionPreset === '') return undefined;
+        if (presetSeenRef.current === '') {
+          presetSeenRef.current = sessionPreset;
+          return undefined;
+        }
+        if (presetSeenRef.current === sessionPreset) return undefined;
+        presetSeenRef.current = sessionPreset;
+        // 切模式只计时一次：等服务器把新预设的探测结果落下来，再刷一次。
+        const timer = setTimeout(() => reload(), PRESET_SETTLE_MS);
+        if (typeof timer?.unref === 'function') timer.unref();
+        return () => clearTimeout(timer);
+      }, [sessionPreset, reload]);
+      React.useEffect(() => {
+        const key = `${sessionId}:${running ? '1' : '0'}:${sessionPreset}`;
         const previous = lastSeenRef.current;
         lastSeenRef.current = key;
         if (previous === null || previous === key) return;
         reload();
-      }, [sessionId, running, reload]);
+      }, [sessionId, running, sessionPreset, reload]);
       const lastResidentRef = React.useRef(0);
-      const [residentRetryTick, setResidentRetryTick] = React.useState(0);
-      React.useEffect(() => {
-        if (sessionId === '') return undefined;
-        if (data?.session?.hasRecord === true) return undefined;
-        if (blank !== false) return undefined;
-        const timer = setInterval(() => setResidentRetryTick((n) => n + 1), RESIDENT_RETRY_MS);
-        if (typeof timer?.unref === 'function') timer.unref();
-        return () => clearInterval(timer);
-      }, [sessionId, data?.session?.hasRecord, blank]);
       React.useEffect(() => {
         if (sessionId === '') return undefined;
         const hasRecord = data?.session?.hasRecord === true;
@@ -208,7 +215,7 @@ window.__ModuleLoader__.load({
         return () => {
           cancelled = true;
         };
-      }, [sessionId, data?.session?.hasRecord, blank, parent, reload, residentRetryTick]);
+      }, [sessionId, data?.session?.hasRecord, blank, parent, reload]);
       React.useEffect(() => {
         if (!open) return undefined;
         reload();

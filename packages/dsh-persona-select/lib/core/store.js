@@ -14,7 +14,6 @@ const HISTORY_FILE_PATTERN = /^[A-Za-z0-9:_-]{1,80}\.txt$/;
 const MIGRATION_BACKUP_SUFFIX = '.v2-backup';
 const MAX_SESSION_RECORDS = 500;
 export const MAX_NAME_LENGTH = 40;
-export const MAX_TEXT_LENGTH = 20000;
 export const MAX_PERSONAS = 200;
 export const PERSONA_HISTORY_SOURCE_KIND = 'persona-history';
 export function normalizeHistory(raw) {
@@ -685,16 +684,6 @@ export function normalizeName(value) {
 export function normalizeText(value) {
   if (typeof value !== 'string') return '';
   return value.replace(/\r\n?/g, '\n').trim();
-}
-export function textLimitWarnings(doc) {
-  const warnings = [];
-  for (const entry of Array.isArray(doc?.personas) ? doc.personas : []) {
-    const length = typeof entry?.text === 'string' ? entry.text.length : 0;
-    if (length <= MAX_TEXT_LENGTH) continue;
-    const name = typeof entry?.name === 'string' && entry.name !== '' ? entry.name : String(entry?.id ?? '');
-    warnings.push(`人设「${name}」的正文有 ${length} 字，超过建议上限 ${MAX_TEXT_LENGTH} 字（已完整保留，未截断）`);
-  }
-  return warnings;
 }
 export function newPersonaId() {
   const stamp = Date.now().toString(36);

@@ -5,7 +5,6 @@ import {
   FOLLOW_SECTION_ORDER,
   MAX_NAME_LENGTH,
   MAX_PERSONAS,
-  MAX_TEXT_LENGTH,
   PERSONA_HISTORY_SOURCE_KIND,
   SWITCH_KEYS,
   acceptSectionOrder,
@@ -37,13 +36,12 @@ import {
   storeNoticesOf,
   storePath,
   switchValueOf,
-  textLimitWarnings,
   withSessionRecord,
   withoutSessionRecords,
   writeStoreFile,
 } from './store.js';
 const PLUGIN_NAME = 'dsh-persona-select';
-const PLUGIN_VERSION = '0.5.2';
+const PLUGIN_VERSION = '0.5.3';
 const ROUTE_PREFIX = '/persona-select';
 const SECTION_NAME = 'plugin:persona-select';
 const HISTORY_PROJECTION_KEY = 'personaSelectHistory';
@@ -849,6 +847,22 @@ async function flushDeferredRecords(state) {
   } catch {
   }
 }
+function isDuplicateSectionError(error) {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  return message.includes(SECTION_NAME) && message.includes('is already registered');
+}
+/**
+ * 同名段还在同一条链路里（上一次挂载尚未释放完）：这一轮不夺权、不当故障，
+ * 等旧实例释放后下一次装配会自动补注册。期间注入照旧。
+ */
+function noteHeldSection(state, ctx, key, label) {
+  if (state.heldSections.has(key)) return;
+  state.heldSections.add(key);
+  logToHost(
+    ctx,
+    `[${PLUGIN_NAME}] ${label}段 ${SECTION_NAME} 还被上一次挂载占着，等它释放后再补注册（这期间照常注入）。`,
+  );
+}
 function syncSection(state, ctx) {
   const wanted = effectiveSectionOrder(state.doc, state.configuredOrder, null);
   if (state.section.disposer !== null && state.section.order === wanted) return;
@@ -881,24 +895,53 @@ function syncSection(state, ctx) {
   };
   try {
     register(wanted);
+    state.heldSections.delete('global');
   } catch (error) {
+    if (isDuplicateSectionError(error)) {
+      noteHeldSection(state, ctx, 'global', '全局');
+      return;
+    }
     logToHost(
       ctx,
       `[${PLUGIN_NAME}] 段序 ${JSON.stringify(wanted)} 注册失败，已回退到 ${DEFAULT_SECTION_ORDER}：${
         error?.message ?? String(error)
       }`,
     );
-    register(DEFAULT_SECTION_ORDER);
+    try {
+      register(DEFAULT_SECTION_ORDER);
+    } catch (fallbackError) {
+      if (!isDuplicateSectionError(fallbackError)) throw fallbackError;
+      noteHeldSection(state, ctx, 'global', '全局');
+    }
   }
 }
 function ensureAgentSection(state, ctx, agent) {
+  let wanted = null;
+  let globalWanted = DEFAULT_SECTION_ORDER;
+  let sessionId = null;
   try {
     if (agent === null || typeof agent !== 'object') return;
-    const sessionId = sessionIdOf(agent);
+    sessionId = sessionIdOf(agent);
     if (sessionId === null) return;
-    const wanted = effectiveSectionOrder(state.doc, state.configuredOrder, sessionId);
+    wanted = effectiveSectionOrder(state.doc, state.configuredOrder, sessionId);
+    globalWanted = effectiveSectionOrder(state.doc, state.configuredOrder, null);
     const current = state.agentSections.get(sessionId);
-    if (current !== undefined && current.order === wanted) return;
+    if (wanted === globalWanted) {
+      // 全局段已经用同一个段序、同一份会话文本注入，不需要再挂 scoped 覆盖。
+      // 这条快路径同时避开了“同一层里同名段已被上次挂载占住”的冲突。
+      if (current !== undefined) {
+        state.agentSections.delete(sessionId);
+        try {
+          current.disposer();
+        } catch {
+        }
+      }
+      state.heldSections.delete(sessionId);
+      return;
+    }
+    if (current !== undefined && current.order === wanted) {
+      return;
+    }
     if (current !== undefined) {
       state.agentSections.delete(sessionId);
       try {
@@ -907,7 +950,7 @@ function ensureAgentSection(state, ctx, agent) {
       }
     }
     const scoped = agent.ctx;
-    if (scoped === undefined || scoped === null || scoped.systemPrompt === undefined) return;
+    if (scoped === undefined || scoped === null) return;
     const register = (order) =>
       scoped.systemPrompt.section({
         name: SECTION_NAME,
@@ -923,12 +966,19 @@ function ensureAgentSection(state, ctx, agent) {
     try {
       disposer = register(order);
     } catch (firstError) {
+      if (isDuplicateSectionError(firstError)) {
+        noteHeldSection(state, ctx, sessionId, '这个会话的');
+        return;
+      }
       order = DEFAULT_SECTION_ORDER;
       try {
         disposer = register(order);
       } catch (secondError) {
+        if (isDuplicateSectionError(secondError)) {
+          noteHeldSection(state, ctx, sessionId, '这个会话的');
+          return;
+        }
         logToHost(ctx, `[${PLUGIN_NAME}] per-agent 段序注册失败：${secondError?.message ?? String(secondError)}`);
-        rememberNotice('这个对话的人设段没有排到正确位置（段序注册失败）。');
         return;
       }
     }
@@ -936,9 +986,10 @@ function ensureAgentSection(state, ctx, agent) {
       order,
       disposer: typeof disposer === 'function' ? disposer : () => {},
     });
+    state.heldSections.delete(sessionId);
+    // 注册成功（可能落在默认段序上）：不再用提示打扰，真实段序看设置页的“真实段序”。
   } catch (error) {
     logToHost(ctx, `[${PLUGIN_NAME}] per-agent 段序注册失败：${error?.message ?? String(error)}`);
-    rememberNotice('这个对话的人设段没有排到正确位置（段序注册失败）。');
   }
 }
 function releaseAgentSection(state, sessionId) {
@@ -951,15 +1002,15 @@ function releaseAgentSection(state, sessionId) {
   } catch {
   }
 }
-function findingsOf(state, sessionBaseline, sessionId, historyMismatch, personaDropped, minimalMode, historyNotCarried) {
+function findingsOf(state, sessionBaseline, sessionId, historyMismatch, personaDropped, minimalMode, historyNotCarried, cacheReset) {
   const red = [];
   const yellow = [];
   if (sessionBaseline === 'empty') red.push('no-tools-first-turn');
   if (!activeFoundOf(state.doc, sessionId)) red.push('persona-missing');
-  if (minimalMode === true) yellow.push('minimal-mode');
-  else if (personaDropped === true) yellow.push('persona-not-injected');
+  if (minimalMode === true || personaDropped === true) yellow.push('persona-dropped');
   if (historyMismatch === true) yellow.push('history-mismatch');
   if (historyNotCarried === true) yellow.push('history-not-carried');
+  if (cacheReset === true) yellow.push('cache-reset');
   return [
     ...red.map((code) => ({ code, color: 'red' })),
     ...yellow.map((code) => ({ code, color: 'yellow' })),
@@ -1133,6 +1184,12 @@ function rememberNotice(message) {
   }
   hostNotices.set(message, true);
 }
+function dismissHostNotices() {
+  const cleared = hostNotices.size;
+  hostNotices.clear();
+  hostNoticeEvicted = false;
+  return cleared;
+}
 const HOST_NOTICE_OVERFLOW_NOTE = `需要注意的情况太多了：这里只保留最近 ${HOST_NOTICE_CAP} 条，更早的已被新提醒顶掉。`;
 function hostNoticesOf() {
   const out = [...hostNotices.keys()];
@@ -1150,6 +1207,92 @@ function uniqueWarnings(list) {
   return out;
 }
 const REPLACEMENT_CHAR = '\uFFFD';
+const CACHE_SAFE_SWITCHES = ['stripRuntime', 'stripTools', 'stripInjected'];
+/** 改动分组键：会话自己的记录用 id，走全局层用 'global'。 */
+function cacheKeyOf(sessionId) {
+  return typeof sessionId === 'string' && sessionId !== '' ? sessionId : 'global';
+}
+/**
+ * 下一次请求真正会变成“未缓存输入”的那部分：人设 id、正文、段序、四个开关。
+ * 名字/历史对话晚改不进提示词，所以不进签名。
+ */
+function signatureOf(doc, configuredOrder, sessionId) {
+  const text = activeTextOf(doc, sessionId);
+  return {
+    id: activeIdOf(doc, sessionId),
+    text: createHash('sha1').update(text, 'utf8').digest('hex').slice(0, 16),
+    order: effectiveSectionOrder(doc, configuredOrder, sessionId),
+    soloOnly: switchValueOf(doc, sessionId, 'soloOnly') === true,
+    stripRuntime: switchValueOf(doc, sessionId, 'stripRuntime') === true,
+    stripTools: switchValueOf(doc, sessionId, 'stripTools') === true,
+    stripInjected: switchValueOf(doc, sessionId, 'stripInjected') === true,
+  };
+}
+function promptSignatureOf(state, sessionId) {
+  return signatureOf(state.doc, state.configuredOrder, sessionId);
+}
+function changedKeysOf(applied, now) {
+  return Object.keys(now).filter((key) => applied[key] !== now[key]);
+}
+/** README 唯一例外：三个“屏蔽”开关各自从开切到关。 */
+function isCacheSafeChange(applied, now, changed) {
+  return changed.every(
+    (key) => CACHE_SAFE_SWITCHES.includes(key) && applied[key] === true && now[key] === false,
+  );
+}
+function rememberPromptSignature(state, sessionId) {
+  if (typeof sessionId !== 'string' || sessionId === '') return;
+  state.promptSig.set(sessionId, promptSignatureOf(state, sessionId));
+  // 这一句已经把改动用掉了：黄点在下一次装配后转绿。
+  state.cacheDirty.delete(sessionId);
+  state.cacheDirty.delete('global');
+  while (state.promptSig.size > MAX_REMEMBERED_SESSIONS) {
+    const oldest = state.promptSig.keys().next();
+    if (oldest.done) break;
+    state.promptSig.delete(oldest.value);
+  }
+}
+/**
+ * 一次写入改动之后调用：把“下一句输入变了”记成待重置。
+ * 参照物优先用上一次真正装配的签名，没有就用改动前的文档——
+ * 两种情况都能识别“改了又改回去”和 README 的开→关例外。
+ */
+function markCacheChanged(state, beforeDoc, sessionId) {
+  try {
+    const key = cacheKeyOf(sessionId);
+    const ref = state.promptSig.get(key) ?? signatureOf(beforeDoc, state.configuredOrder, sessionId);
+    const now = promptSignatureOf(state, sessionId);
+    const changed = changedKeysOf(ref, now);
+    if (changed.length === 0) {
+      state.cacheDirty.delete(key);
+      return;
+    }
+    if (isCacheSafeChange(ref, now, changed)) {
+      state.cacheDirty.delete(key);
+      return;
+    }
+    state.cacheDirty.set(key, { at: Date.now(), changed });
+  } catch {
+  }
+}
+/**
+ * 缓存状态：下一次请求的输入是否与上一次装配时不同（黄点），或本次进程还没装配过（绿）。
+ */
+function cacheResetOf(state, sessionId) {
+  if (typeof sessionId !== 'string' || sessionId === '') return null;
+  const dirty = state.cacheDirty.get(sessionId);
+  const globalDirty = sessionRecordOf(state.doc, sessionId) === null ? state.cacheDirty.get('global') : undefined;
+  if (dirty !== undefined || globalDirty !== undefined) {
+    const hit = dirty ?? globalDirty;
+    return { pending: true, applied: state.promptSig.has(sessionId), changed: hit.changed };
+  }
+  const applied = state.promptSig.get(sessionId);
+  if (applied === undefined) return { pending: false, applied: false };
+  const now = promptSignatureOf(state, sessionId);
+  const changed = changedKeysOf(applied, now);
+  if (changed.length === 0) return { pending: false, applied: true, changed };
+  return { pending: !isCacheSafeChange(applied, now, changed), applied: true, changed };
+}
 function hasReplacementChars(text) {
   return typeof text === 'string' && text.indexOf(REPLACEMENT_CHAR) !== -1;
 }
@@ -1178,7 +1321,11 @@ function viewOf(state, ctx, sessionId) {
   const notCarried = historyNotCarriedOf(
     state, ctx, seen.sessionId, personaSwitchedOf(state, seen.sessionId),
   );
-  const findings = findingsOf(state, seen.baseline, wantSession, mismatch, dropped, minimalMode, notCarried);
+  const cacheReset = cacheResetOf(state, wantSession);
+  const findings = findingsOf(
+    state, seen.baseline, wantSession, mismatch, dropped, minimalMode, notCarried,
+    cacheReset !== null && cacheReset.pending === true,
+  );
   return {
     ok: true,
     plugin: PLUGIN_NAME,
@@ -1210,6 +1357,8 @@ function viewOf(state, ctx, sessionId) {
       indicator: indicatorOf(findings),
       indicators: findings,
       minimalMode,
+      /** 下一句会不会让整段输入变成“未缓存输入”（黄点）；下一句装配后就回绿。 */
+      cacheReset,
       historyInjections: state.historyInjections,
     },
     switches: Object.fromEntries(SWITCH_KEYS.map((key) => [key, switchValueOf(state.doc, wantSession, key)])),
@@ -1226,11 +1375,12 @@ function viewOf(state, ctx, sessionId) {
       order: entry.sectionOrder ?? null,
       historyLockedAt: entry.history?.lockedAt ?? null,
     })),
-    limits: { maxName: MAX_NAME_LENGTH, maxText: MAX_TEXT_LENGTH },
+    limits: { maxName: MAX_NAME_LENGTH },
     error: state.error,
+    /** 只有这类提示能被「关闭这些提示」清掉；读文件读出来的问题是数据本身，关掉也会再出现。 */
+    dismissable: hostNoticesOf().length,
     warnings: uniqueWarnings([
       ...state.warnings,
-      ...textLimitWarnings(state.doc),
       ...storeNoticesOf(),
       ...hostNoticesOf(),
       ...historyAudit,
@@ -1460,6 +1610,12 @@ function mount(ctx, config, cleanups) {
     stripStats: new Map(),
     historyInjections: 0,
     agentSections: new Map(),
+    /** 每个会话上一次真正装配时的输入签名；用来判断下一句会不会重置缓存。 */
+    promptSig: new Map(),
+    /** 已经改了、但还没被下一句装配用掉的缓存重置（黄点来源）。 */
+    cacheDirty: new Map(),
+    /** 同名段被上一次挂载占住的 scoped 键；释放后由下一次装配补注册。 */
+    heldSections: new Set(),
     handoffs: new Map(),
   };
   reload(state);
@@ -1492,16 +1648,6 @@ function mount(ctx, config, cleanups) {
     const kept = contexts.filter((entry) => entry?.required === true);
     return kept.length === contexts.length ? null : { ...assembly, contexts: kept };
   }
-  effect(`${PLUGIN_NAME}: 取件表定时清理`, () => {
-    const timer = setInterval(() => {
-      try {
-        pruneHandoffs(state.handoffs, Date.now());
-      } catch {
-      }
-    }, HANDOFF_TTL_MS);
-    if (typeof timer.unref === 'function') timer.unref();
-    return () => clearInterval(timer);
-  });
   const ROUTES = new Map([
     [`${ROUTE_PREFIX}/state`, ['GET']],
     [`${ROUTE_PREFIX}/persona`, ['GET']],
@@ -1513,6 +1659,7 @@ function mount(ctx, config, cleanups) {
     [`${ROUTE_PREFIX}/delete`, ['DELETE']],
     [`${ROUTE_PREFIX}/active`, ['PUT']],
     [`${ROUTE_PREFIX}/switches`, ['PUT']],
+    [`${ROUTE_PREFIX}/notices`, ['PUT', 'DELETE']],
   ]);
   effect(`${PLUGIN_NAME}: ${ROUTE_PREFIX} 路由`, () => {
     const disposer = ctx.webServer.register({
@@ -1716,6 +1863,8 @@ function mount(ctx, config, cleanups) {
               return { next: written, saved, id, layer, activating };
             };
             let outcome = null;
+            const saveBeforeDoc = state.doc;
+            const saveSessionKey = normalizeSessionId(body.session);
             await saveWithRetry(state, async () => {
               const planned = plan(state.doc);
               if (planned.error !== undefined) {
@@ -1728,6 +1877,7 @@ function mount(ctx, config, cleanups) {
               outcome = planned;
             });
             const { saved, id, layer, activating } = outcome;
+            markCacheChanged(state, saveBeforeDoc, layer.kind === 'session' ? layer.id : saveSessionKey);
             try {
               syncSection(state, ctx);
             } catch (error) {
@@ -1738,7 +1888,6 @@ function mount(ctx, config, cleanups) {
               saved,
               id,
               layer: activating ? layer.kind : null,
-              warnings: textLimitWarnings(state.doc),
             });
             return;
           }
@@ -1856,6 +2005,10 @@ function mount(ctx, config, cleanups) {
               });
               return;
             }
+            const deleteBeforeDoc = state.doc;
+            const activeElsewhere = Object.entries(state.doc.sessions ?? {})
+              .filter(([, record]) => record?.activeId === id)
+              .map(([sid]) => sid);
             await saveWithRetry(state, () => {
               const next = {
                 ...state.doc,
@@ -1870,7 +2023,15 @@ function mount(ctx, config, cleanups) {
               if (next.activeId === id) next.activeId = null;
               return commit(state, next);
             });
+            markCacheChanged(state, deleteBeforeDoc, null);
+            for (const sid of activeElsewhere) markCacheChanged(state, deleteBeforeDoc, sid);
             sendJson(res, 200, { ok: true });
+            return;
+          }
+          if (url.pathname === `${ROUTE_PREFIX}/notices`) {
+            await readJsonBody(req).catch(() => {});
+            const cleared = dismissHostNotices();
+            sendJson(res, 200, { ok: true, cleared, warnings: viewOf(state, ctx, askedSession).warnings });
             return;
           }
           if (url.pathname === `${ROUTE_PREFIX}/switches`) {
@@ -1906,6 +2067,7 @@ function mount(ctx, config, cleanups) {
             }
             const layer = layerFor(state, body.session);
             const now = Date.now();
+            const switchesBeforeDoc = state.doc;
             await writeLayer(state, layer, now, (target) => {
               for (const key of SWITCH_KEYS) {
                 if (Object.hasOwn(body, key)) target[key] = body[key] === true;
@@ -1915,6 +2077,7 @@ function mount(ctx, config, cleanups) {
                 for (const key of SWITCH_KEYS) target[key] = true;
               }
             });
+            markCacheChanged(state, switchesBeforeDoc, layer.kind === 'session' ? layer.id : normalizeSessionId(body.session));
             sendJson(res, 200, {
               ok: true,
               touched,
@@ -1975,9 +2138,11 @@ function mount(ctx, config, cleanups) {
               }
             }
             const now = Date.now();
+            const activeBeforeDoc = state.doc;
             await writeLayer(state, layer, now, (target) => {
               target.activeId = isOff ? null : rawId;
             });
+            markCacheChanged(state, activeBeforeDoc, layer.kind === 'session' ? layer.id : normalizeSessionId(body.session));
             try {
               syncSection(state, ctx);
             } catch (error) {
@@ -2049,6 +2214,7 @@ function mount(ctx, config, cleanups) {
             rememberAssembly(state, sessionId, { assembledAt, appliedAt: null, droppedAt: null });
             forgetPersonaDropped(state, sessionId);
           }
+          rememberPromptSignature(state, sessionId);
           const baselineState = toolBaselineState(agentForSession);
           state.assembly.sessionId = sessionId;
           rememberAssembly(state, sessionId, { toolBaseline: baselineState });
@@ -2313,18 +2479,20 @@ function mount(ctx, config, cleanups) {
       }
     }),
   );
-  cleanups.push(() => {
-    flushDeferredRecords(state);
-  });
-  cleanups.push(() => {
+  effect(`${PLUGIN_NAME}: 卸载时回收 per-agent 段、挂起写盘与导出句柄`, () => () => {
+    try {
+      flushDeferredRecords(state);
+    } catch {
+    }
     for (const sessionId of [...state.agentSections.keys()]) releaseAgentSection(state, sessionId);
-    state.handoffs.clear();
     state.agentSections.clear();
+    state.heldSections.clear();
+    state.handoffs.clear();
   });
   const globalHistory = activeHistoryStatsOf(state.doc, null);
   logToHost(
     ctx,
-    `[${PLUGIN_NAME}] 已挂载：数据 ${state.path}；段 ${SECTION_NAME}；全局人设 ${
+    `[${PLUGIN_NAME}] v${PLUGIN_VERSION} 已挂载：数据 ${state.path}；段 ${SECTION_NAME}；全局人设 ${
       activeIdOf(state.doc, null) ?? '（未选择）'
     }；段序 ${state.section.order}（${sectionOrderMode(state.doc, null) === 'follow' ? '追随' : '数值'}）；全局开关 ${
       SWITCH_KEYS.filter((key) => switchValueOf(state.doc, null, key) === true).join(',') || '（全关）'
