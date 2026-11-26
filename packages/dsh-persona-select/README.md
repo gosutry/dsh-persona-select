@@ -43,7 +43,7 @@
 - 新建、编辑、保存、删除人设，**复制为新人设**（内置人设只读，要改就复制一份副本再改）。
 - 每一条人设包含：名称、人设正文、段序权重、历史对话。
 - **设置分开保存**：每个对话保存自己的选择与开关，**切换人设、改动勾选项都不会影响新对话和进行中的对话**。设置页有「当前」「全局」两个页签，分别对应"这一个对话"和"新对话默认跟随的设置"。
-- 保存前会先校验：正文为空、名称为空、权重不是整数都会拒绝保存并说明原因；正文超过建议上限会提示但完整保留。
+- 保存前会先校验：正文为空、名称为空、权重不是整数都会拒绝保存并说明原因。
 - 未保存的改动在切换人设时会先询问，避免默默丢掉。
 
 ### 屏蔽与「纯聊天」
@@ -89,7 +89,7 @@
 - 层徽标告诉你这条设置是**本会话**的还是**全局**的。
 - 状态点：
   - 绿点：工具基线可用，一切正常。
-  - 黄点：本对话选定人设的历史对话与当初注入的那份对不上了；本对话的人设正文没进系统提示词（例如对话用了声明 `complete: true` 的「极简模式」）；本对话已经聊过，所以这条人设的历史对话不再注入。
+  - 黄点：本对话选定人设的历史对话与当初注入的那份对不上了；本对话的人设正文没进系统提示词（例如对话用了声明 `complete: true` 的「极简模式」）；本对话已经聊过，所以这条人设的历史对话不再注入；改动人设正文、段序、当前人设或开关后，下一句会重置缓存（发出下一句后自动变绿，三个「屏蔽」开关从开切到关是例外）。
   - 红点：本对话选的人设已被删除（人设段现在是空的），或这个对话的首次请求没带任何工具（工具基线为空，本对话内工具回不来）。
 - 设置页的「当前」页会按来源列出**这个对话里被过滤掉**的注入块：runtime 快照、skill 目录、工作区指令、时间读数。
 
@@ -103,7 +103,7 @@
 | `personas.json.v2-backup` | 旧版升级时的备份，可删 |
 | `history/<编号>.txt` | 各条人设的历史对话正文 |
 
-- 名称最长 40 字；人设正文建议不超过 20000 字（超过会提示，但完整保留、不截断）；最多 200 条人设；最多保留 500 条对话记录。
+- 名称最长 40 字；最多 200 条人设；最多保留 500 条对话记录。
 - 会话记录会被自动清理：已经不存在、也不在活动列表里的对话记录会被回收（设置页也可主动触发），避免文件无限膨胀。
 
 ### 界面
@@ -150,7 +150,7 @@ The two are stored together as one **persona**: write the text and the history i
 - Create, edit, save and delete personas, and **Fork as new** (built-in personas are read-only; fork a copy to edit one).
 - Each persona carries: name, persona text, section order weight, conversation history.
 - **Settings are saved per conversation**: each conversation keeps its own selection and switches, so **switching personas or toggling a switch never affects new conversations or conversations in progress**. The settings page has a Current / Global tab pair — "this conversation" versus "what new conversations follow".
-- Saving validates first: empty text, empty name or a non-integer weight is refused with a reason; text over the recommended limit is reported but kept in full.
+- Saving validates first: empty text, empty name or a non-integer weight is refused with a reason.
 - Unsaved edits trigger a confirmation before switching personas, so nothing is silently dropped.
 
 ### Suppression and pure chat
@@ -196,7 +196,7 @@ The "Persona" dropdown under the mode selector:
 - A scope badge tells you whether the setting is for **this chat** or **global**.
 - Status dots:
   - Green: the tool baseline is usable, all good.
-  - Yellow: this session's persona history no longer matches what was injected; the persona text never made it into the system prompt (e.g. the conversation uses a "minimal" preset declaring `complete: true`); the conversation has already been chatting, so its history will not be injected.
+  - Yellow: this session's persona history no longer matches what was injected; the persona text never made it into the system prompt (e.g. the conversation uses a "minimal" preset declaring `complete: true`); the conversation has already been chatting, so its history will not be injected; after changing the persona text, section order, active persona or switches the next message resets the cache (it turns green once that message is sent, the three “suppress” switches going from on to off are the exception).
   - Red: the persona selected for this session has been deleted (the persona section is empty), or this session's first request carried no tools at all (empty tool baseline — tools cannot return within this session).
 - The settings page's Current tab lists the injection blocks **filtered out in this conversation**, by kind: runtime snapshot, skill catalog, workspace instructions, time readings.
 
@@ -210,7 +210,7 @@ The "Persona" dropdown under the mode selector:
 | `personas.json.v2-backup` | migration backup, safe to delete |
 | `history/<id>.txt` | the conversation history body of each persona |
 
-- Names up to 40 characters; persona text recommended under 20000 characters (over that it is reported but kept in full, never truncated); at most 200 personas; at most 500 session records.
+- Names up to 40 characters; at most 200 personas; at most 500 session records.
 - Session records are garbage-collected: records for conversations that no longer exist and are not in the active list are reclaimed (also triggerable from the settings page), so the file cannot grow without bound.
 
 ### Interface
